@@ -116,7 +116,9 @@ export default {
   data() {
     return {
       showonehot: false,
-      availableStatsmodels: ["T-test","Shapiro-Wilk Test"],
+      availableMLmodels: ["Linear Regression","Logistic Regression"],
+      typesofLinearRegressions:["Lasso", "L1", "L2"],
+      typesofLogisticRegression:["a", "b"],
       file: null,
       uploadSuccess: false,
       uploadError: '',
