@@ -1,7 +1,15 @@
 /* styles.css */
 
-/* Custom styles for the file drop area */
-.text-center {
+/* Set background color for the entire page */
+body {
+    background-color: Gainsboro;
+    margin: 0;
+    font-family: Avenir, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  .text-center {
     text-align: center;
   }
   
@@ -35,20 +43,56 @@
     border: 0;
   }
   
-  /* Styles for the uploaded CSV table */
+  /* Styles for the table container */
   .table-container {
+    border: 2px solid #000; /* Border around the table container */
+    border-radius: 10px;
     max-height: 400px; /* Adjust max height as needed */
     overflow-y: auto; /* Enable vertical scrolling */
-    margin: 0 auto; /* Center horizontally */
+    margin: 20px auto; /* Center horizontally with margin */
+    padding: 0px; /* Padding inside the table container */
+    position: relative; /* Ensure relative positioning for absolute elements */
   }
   
-  .table-bordered {
-    border: 2px solid #000; /* Border around the table */
-    border-collapse: collapse; /* Collapse borders */
+  /* Style for table headers */
+  .table-container th {
+    background-color: #3498db; /* Blue background color */
+    color: #fff; /* White text color */
+    padding: 8px; /* Padding inside table headers */
   }
   
-  .table-bordered th, .table-bordered td {
-    border: 2px solid #000; /* Border for table cells */
-    padding: 8px; /* Padding for better spacing */
+  /* Style for table cell text */
+  .table-container td {
+    padding: 8px; /* Padding inside table cells */
   }
   
+  /* Style for the Load More button */
+  .load-more-btn {
+    position: sticky;
+    top: 10px;
+    z-index: 1;
+    width: 100%;
+    max-width: 300px; /* Adjust max width as needed */
+    margin: 0 auto;
+  }
+  
+  /* Styles for fixed table header */
+  .fixed-header {
+    position: sticky;
+    top: 0;
+    z-index: 1; /* Ensure header stays above table content */
+    background-color: #fff; /* Optional: Add background color */
+  }
+  
+
+  .button-center-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+  }
+
+  .scrollable-dropdown {
+    max-height: 200px; /* Adjust the height as needed */
+    overflow-y:scroll;
+  }

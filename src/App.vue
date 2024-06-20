@@ -10,11 +10,11 @@
         @dragenter.prevent
         @drop="handleFileDrop"
         @click="$refs.fileInput.click()"
-        v-if="!uploadSuccess || file"
       >
-        <p v-if="!file">{{ dropMessage }}</p>
-        <p v-else>{{ file.name }}</p>
-        <input
+      <p v-if="!parsing">{{ dropMessage }}</p>
+        <div v-else class="spinner-border" role="status">
+        </div>
+        <input 
           type="file"
           class="visually-hidden"
           ref="fileInput"
@@ -23,23 +23,73 @@
         >
       </div>
 
-      <!-- Display CSV content -->
-      <div v-if="uploadSuccess && csvData.length > 0" class="mt-3 text-center">
-        <h2>Uploaded CSV Data (Top 50 rows, 5 at a time)</h2>
-        <div class="table-container">
-          <table class="table table-bordered table-striped">
-            <thead>
-              <tr>
-                <th v-for="(header, index) in csvData[0]" :key="index">{{ header }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, rowIndex) in displayedRows" :key="rowIndex">
-                <td v-for="(value, colIndex) in row" :key="colIndex">{{ value }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <button v-if="totalRows > rowsPerPage" class="btn btn-primary mt-3" @click="loadMoreRows">Load More</button>
+      <!-- Display instances of CSV data -->
+      <div v-if="dataInstances.length > 0" class="mt-5">
+        <div v-for="(instance, index) in dataInstances" :key="index" class="mt-3 instance-container">
+          <h3 class="text-center">Name: {{ instance.name }}</h3>
+          <div class="table-container">
+            <table class="table table-bordered table-striped">
+              <thead class="fixed-header">
+                <tr>
+                  <th v-for="(header, index) in instance.data[0]" :key="index">{{ header }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowIndex) in instance.displayedRows" :key="rowIndex">
+                  <td v-for="(value, colIndex) in row" :key="colIndex">{{ value }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="button-center-container">
+            <CDropdown>
+              <CDropdownToggle color="primary">Feature Engineering options</CDropdownToggle>
+              <CDropdownMenu>
+                <CDropdownItem href="#" @click="showonehot = true">One hot encoding</CDropdownItem>
+                <CDropdownItem href="#">Another action</CDropdownItem>
+              </CDropdownMenu>
+            </CDropdown>
+
+            <Modal
+              v-if="showonehot"
+              @close="showonehot = false"
+            >
+              <template v-slot:header>
+                <h2> One hot encoding </h2>
+              </template>
+
+              <template v-slot:body>
+                <p2> Select a column from below</p2>
+                <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedItem">
+                  <option disabled value="">Open this select menu</option>
+                  <option v-for="(value, key) in instance.data[0]" :key="key" :value="value">
+                    {{ value }}
+                  </option>
+                </CFormSelect>
+              </template>
+
+              <template v-slot:footer>
+                <button @click="showonehot = false">Close</button>
+              </template>
+            </Modal>
+            
+            <button v-if="instance.totalRows > rowsPerPage" class="btn btn-primary mt-3 load-more-btn" @click="loadMoreRowsForInstance(index)">
+              <span v-if="instance.loading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              <span v-else>Load More</span>
+            </button>
+
+            <button class="btn btn-success mt-3" @click="ev => {
+              instanceParent = instance.data;
+              creatingInstance = true;
+            }">
+              <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              <span v-else>Create New Instance</span>
+            </button>
+
+            <button class="btn btn-danger mt-3" @click="deleteInstance(index)">
+              <span>Delete Instance</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -49,25 +99,45 @@
       </div>
     </div>
   </div>
+
+  <Modal 
+    v-if="creatingInstance" 
+    @close="creatingInstance = false" 
+    @submitName="(name) => createNewInstance(this.instanceParent, name)"
+    :existingNames="dataInstances.map(instance => instance.name)"
+  />
 </template>
 
 <script>
+import Modal from './components/Modal.vue';
+
 export default {
   name: 'FileUpload',
   data() {
     return {
+      showonehot: false,
+      availableStatsmodels: ["T-test","Shapiro-Wilk Test"],
       file: null,
       uploadSuccess: false,
       uploadError: '',
       csvData: [], // Array to hold CSV data
       displayedRows: [], // Rows to display (pagination)
       rowsPerPage: 5, // Number of rows per page
-      currentPage: 1 // Current page of displayed rows
+      currentPage: 1, // Current page of displayed rows
+      dataInstances: [], // Array to hold instances of CSV data
+      loading: false, // Loading state for main CSV data
+      creatingInstance: false, // Loading state for creating new instance
+      instanceParent: [],
+      instanceName: "",
+      parsingData:false
     };
+  },
+  components: {
+    Modal
   },
   computed: {
     dropMessage() {
-      return this.file ? 'Drop file here or click to browse' : 'Drag & Drop a CSV file here';
+      return 'Drag & Drop a CSV file here';
     },
     totalRows() {
       return this.csvData.length > 0 ? this.csvData.length - 1 : 0; // Exclude header row
@@ -87,13 +157,16 @@ export default {
       if (file && file.type === 'text/csv') {
         this.file = file;
         this.uploadError = ''; // Clear any previous errors
-        
+        this.parsing = true; // Set parsing state to true
+
         // Read the CSV file
         this.readCSV(file);
+
       } else {
         this.file = null;
         this.uploadError = 'Please choose a valid CSV file.';
       }
+
     },
     readCSV(file) {
       const reader = new FileReader();
@@ -112,6 +185,9 @@ export default {
       const data = rows.slice(1).map(row => row.split(','));
       // Update csvData array
       this.csvData = [headers, ...data];
+      this.dataInstances = []
+      this.instanceParent = []
+      this.createNewInstance(this.csvData, "original");
       
       // Set initial displayed rows
       this.displayedRows = this.csvData.slice(1, this.rowsPerPage + 1);
@@ -120,26 +196,67 @@ export default {
       // For demonstration purposes
       setTimeout(() => {
         this.uploadSuccess = true;
+        this.parsing = false
         // Reset file input after successful upload (optional)
-        this.$refs.fileInput.value = '';
-      }, 1000); // Simulating upload delay of 1 second
+        if (this.$refs.fileInput) {
+          this.$refs.fileInput.value = '';
+        }
+      }, 1); // Simulating upload delay of 1 second
     },
     loadMoreRows() {
-      // Calculate the next set of rows to display
-      const startIndex = this.currentPage * this.rowsPerPage + 1;
-      const endIndex = startIndex + this.rowsPerPage;
-      if (startIndex < this.csvData.length) {
-        this.displayedRows.push(...this.csvData.slice(startIndex, endIndex));
-        this.currentPage++;
-      }
+      this.loading = true;
+      // Simulate a delay for loading data
+      setTimeout(() => {
+        // Calculate the next set of rows to display
+        const startIndex = this.currentPage * this.rowsPerPage + 1;
+        const endIndex = startIndex + this.rowsPerPage;
+        if (startIndex < this.csvData.length) {
+          this.displayedRows.push(...this.csvData.slice(startIndex, endIndex));
+          this.currentPage++;
+        }
+        this.loading = false;
+      }, 1000); // Simulating delay of 1 second
+    },
+    loadMoreRowsForInstance(index) {
+      this.dataInstances[index].loading = true;
+      // Simulate a delay for loading data
+      setTimeout(() => {
+        const instance = this.dataInstances[index];
+        // Calculate the next set of rows to display for this instance
+        const startIndex = instance.currentPage * this.rowsPerPage + 1;
+        const endIndex = startIndex + this.rowsPerPage;
+        if (startIndex < instance.data.length) {
+          instance.displayedRows.push(...instance.data.slice(startIndex, endIndex));
+          instance.currentPage++;
+        }
+        instance.loading = false;
+        console.log(10000)
+        console.log(instance.data[0]);
+
+      }, 1000); // Simulating delay of 1 second
+    },
+    createNewInstance(data, name) {
+      console.log('aaaaaaaaa')
+      console.log(name);
+      // Simulate a delay for creating new instance
+      setTimeout(() => {
+        // Create a new instance of the data and add it to dataInstances
+        this.dataInstances.push({
+          data: JSON.parse(JSON.stringify(data)), // Deep copy to avoid reference issues
+          displayedRows: JSON.parse(JSON.stringify(data.slice(1, this.rowsPerPage + 1))), // Initial rows to display
+          currentPage: 1, // Current page of displayed rows
+          totalRows: data.length - 1, // Total rows excluding header
+          loading: false, // Loading state for the instance
+          name: name
+        });
+        this.creatingInstance = false;
+      }, 1000); // Simulating delay of 1 second
+    },
+    deleteInstance(index) {
+      this.dataInstances.splice(index, 1);
     }
-  }
+  },
 };
 </script>
 
-<!-- Import styles from external stylesheet -->
 <style src="@/assets/styles.css" scoped></style>
-
-<style scoped>
-/* Additional styles specific to this component can go here if needed */
-</style>
