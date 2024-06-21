@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="file-upload-container">
     <h1 class="text-center">DataPal - No Code ML</h1>
 
     <div class="container mt-5">
@@ -11,9 +11,8 @@
         @drop="handleFileDrop"
         @click="$refs.fileInput.click()"
       >
-      <p v-if="!parsing">{{ dropMessage }}</p>
-        <div v-else class="spinner-border" role="status">
-        </div>
+        <p v-if="!parsing">{{ dropMessage }}</p>
+        <div v-else class="spinner-border" role="status"></div>
         <input 
           type="file"
           class="visually-hidden"
@@ -26,69 +25,75 @@
       <!-- Display instances of CSV data -->
       <div v-if="dataInstances.length > 0" class="mt-5">
         <div v-for="(instance, index) in dataInstances" :key="index" class="mt-3 instance-container">
-          <h3 class="text-center">Name: {{ instance.name }}</h3>
-          <div class="table-container">
-            <table class="table table-bordered table-striped">
-              <thead class="fixed-header">
-                <tr>
-                  <th v-for="(header, index) in instance.data[0]" :key="index">{{ header }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, rowIndex) in instance.displayedRows" :key="rowIndex">
-                  <td v-for="(value, colIndex) in row" :key="colIndex">{{ value }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="header" @click="toggleCollapse(index)">
+            <h3 class="text-center">Name: {{ instance.name }}</h3>
+            <span :class="{ collapsed: instance.isCollapsed }">&#9660;</span>
           </div>
-          <div class="button-center-container">
-            <CDropdown>
-              <CDropdownToggle color="primary">Feature Engineering options</CDropdownToggle>
-              <CDropdownMenu>
-                <CDropdownItem href="#" @click="showonehot = true">One hot encoding</CDropdownItem>
-                <CDropdownItem href="#">Another action</CDropdownItem>
-              </CDropdownMenu>
-            </CDropdown>
 
-            <Modal
-              v-if="showonehot"
-              @close="showonehot = false"
-            >
-              <template v-slot:header>
-                <h2> One hot encoding </h2>
-              </template>
+          <div v-if="!instance.isCollapsed">
+            <div class="table-container" @scrollend="() => instance.displayedRows.length < instance.totalRows ? loadMoreRowsForInstance(index) : {}">
+              <table class="table table-bordered table-striped">
+                <thead class="fixed-header">
+                  <tr>
+                    <th v-for="(header, index) in instance.data[0]" :key="index">{{ header }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, rowIndex) in instance.displayedRows" :key="rowIndex">
+                    <td v-for="(value, colIndex) in row" :key="colIndex">{{ value }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
-              <template v-slot:body>
-                <p2> Select a column from below</p2>
-                <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedItem">
-                  <option disabled value="">Open this select menu</option>
-                  <option v-for="(value, key) in instance.data[0]" :key="key" :value="value">
-                    {{ value }}
-                  </option>
-                </CFormSelect>
-              </template>
+            <div class="button-center-container">
+              <CDropdown>
+                <CDropdownToggle color="primary">Feature Engineering options</CDropdownToggle>
+                <CDropdownMenu>
+                  <CDropdownItem href="#" @click="showonehot = true">One hot encoding</CDropdownItem>
+                  <CDropdownItem href="#">Another action</CDropdownItem>
+                </CDropdownMenu>
+              </CDropdown>
 
-              <template v-slot:footer>
-                <button @click="showonehot = false">Close</button>
-              </template>
-            </Modal>
-            
-            <button v-if="instance.totalRows > rowsPerPage" class="btn btn-primary mt-3 load-more-btn" @click="loadMoreRowsForInstance(index)">
-              <span v-if="instance.loading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-              <span v-else>Load More</span>
-            </button>
+              <Modal v-if="showonehot" @close="showonehot = false">
+                <template v-slot:header>
+                  <h2> One hot encoding </h2>
+                </template>
 
-            <button class="btn btn-success mt-3" @click="ev => {
-              instanceParent = instance.data;
-              creatingInstance = true;
-            }">
-              <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-              <span v-else>Create New Instance</span>
-            </button>
+                <template v-slot:body>
+                  <p2> Select a column from below</p2>
+                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedItem">
+                    <option disabled value="">Open this select menu</option>
+                    <option v-for="(value, key) in instance.data[0]" :key="key" :value="value">
+                      {{ value }}
+                    </option>
+                  </CFormSelect>
+                </template>
 
-            <button class="btn btn-danger mt-3" @click="deleteInstance(index)">
-              <span>Delete Instance</span>
-            </button>
+                <template v-slot:footer>
+                  <button @click="showonehot = false">Close</button>
+                </template>
+              </Modal>
+
+              <button class="btn btn-success mt-3" @click="ev => { instanceParent = instance.data; creatingInstance = true; }">
+                <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span v-else>Create New Instance</span>
+              </button>
+
+              <button class="btn btn-danger mt-3" @click="deleteInstance(index)">
+                <span>Delete Instance</span>
+              </button>
+            </div>
+
+            <ModelInfo 
+              :models="this.models" 
+              :key="instance.modelInfo?.version" 
+              :variables="instance.data[0]"
+              @updateModel="(model) => {
+                console.log(model);
+                instance.model = model;
+                instance.model.version++;
+            }"></ModelInfo>
           </div>
         </div>
       </div>
@@ -110,39 +115,43 @@
 
 <script>
 import Modal from './components/Modal.vue';
+import ModelInfo from './components/ModelInfo.vue';
+import { LinearRegression, LassoRegression } from './classes/Model';
 
 export default {
   name: 'FileUpload',
   data() {
     return {
       showonehot: false,
-      availableMLmodels: ["Linear Regression","Logistic Regression"],
-      typesofLinearRegressions:["Lasso", "L1", "L2"],
-      typesofLogisticRegression:["a", "b"],
       file: null,
       uploadSuccess: false,
       uploadError: '',
-      csvData: [], // Array to hold CSV data
-      displayedRows: [], // Rows to display (pagination)
-      rowsPerPage: 5, // Number of rows per page
-      currentPage: 1, // Current page of displayed rows
-      dataInstances: [], // Array to hold instances of CSV data
-      loading: false, // Loading state for main CSV data
-      creatingInstance: false, // Loading state for creating new instance
+      csvData: [],
+      displayedRows: [],
+      rowsPerPage: 5,
+      currentPage: 1,
+      dataInstances: [],
+      loading: false,
+      creatingInstance: false,
       instanceParent: [],
       instanceName: "",
-      parsingData:false
+      parsing: false,
+      models: [
+        new LinearRegression(),
+        new LassoRegression()
+      ]
     };
   },
   components: {
-    Modal
+    Modal,
+    ModelInfo
   },
   computed: {
     dropMessage() {
       return 'Drag & Drop a CSV file here';
     },
     totalRows() {
-      return this.csvData.length > 0 ? this.csvData.length - 1 : 0; // Exclude header row
+      return this.csvData.length > 0 ? this.csvData.length - 1 : 0;
     }
   },
   methods: {
@@ -158,17 +167,13 @@ export default {
     handleFile(file) {
       if (file && file.type === 'text/csv') {
         this.file = file;
-        this.uploadError = ''; // Clear any previous errors
-        this.parsing = true; // Set parsing state to true
-
-        // Read the CSV file
+        this.uploadError = '';
+        this.parsing = true;
         this.readCSV(file);
-
       } else {
         this.file = null;
         this.uploadError = 'Please choose a valid CSV file.';
       }
-
     },
     readCSV(file) {
       const reader = new FileReader();
@@ -179,37 +184,25 @@ export default {
       reader.readAsText(file);
     },
     parseCSV(csv) {
-      // Split CSV into rows
       const rows = csv.trim().split(/\r?\n/);
-      // Extract headers (first row)
       const headers = rows[0].split(',');
-      // Extract data rows
       const data = rows.slice(1).map(row => row.split(','));
-      // Update csvData array
       this.csvData = [headers, ...data];
-      this.dataInstances = []
-      this.instanceParent = []
+      this.dataInstances = [];
+      this.instanceParent = [];
       this.createNewInstance(this.csvData, "original");
-      
-      // Set initial displayed rows
       this.displayedRows = this.csvData.slice(1, this.rowsPerPage + 1);
-      
-      // Simulate successful upload (replace with actual upload logic)
-      // For demonstration purposes
       setTimeout(() => {
         this.uploadSuccess = true;
-        this.parsing = false
-        // Reset file input after successful upload (optional)
+        this.parsing = false;
         if (this.$refs.fileInput) {
           this.$refs.fileInput.value = '';
         }
-      }, 1); // Simulating upload delay of 1 second
+      }, 1);
     },
     loadMoreRows() {
       this.loading = true;
-      // Simulate a delay for loading data
       setTimeout(() => {
-        // Calculate the next set of rows to display
         const startIndex = this.currentPage * this.rowsPerPage + 1;
         const endIndex = startIndex + this.rowsPerPage;
         if (startIndex < this.csvData.length) {
@@ -217,14 +210,12 @@ export default {
           this.currentPage++;
         }
         this.loading = false;
-      }, 1000); // Simulating delay of 1 second
+      }, 1000);
     },
     loadMoreRowsForInstance(index) {
       this.dataInstances[index].loading = true;
-      // Simulate a delay for loading data
       setTimeout(() => {
         const instance = this.dataInstances[index];
-        // Calculate the next set of rows to display for this instance
         const startIndex = instance.currentPage * this.rowsPerPage + 1;
         const endIndex = startIndex + this.rowsPerPage;
         if (startIndex < instance.data.length) {
@@ -232,33 +223,176 @@ export default {
           instance.currentPage++;
         }
         instance.loading = false;
-        console.log(10000)
-        console.log(instance.data[0]);
-
-      }, 1000); // Simulating delay of 1 second
+      }, 1000);
     },
     createNewInstance(data, name) {
-      console.log('aaaaaaaaa')
-      console.log(name);
-      // Simulate a delay for creating new instance
       setTimeout(() => {
-        // Create a new instance of the data and add it to dataInstances
         this.dataInstances.push({
-          data: JSON.parse(JSON.stringify(data)), // Deep copy to avoid reference issues
-          displayedRows: JSON.parse(JSON.stringify(data.slice(1, this.rowsPerPage + 1))), // Initial rows to display
-          currentPage: 1, // Current page of displayed rows
-          totalRows: data.length - 1, // Total rows excluding header
-          loading: false, // Loading state for the instance
-          name: name
+          data: JSON.parse(JSON.stringify(data)),
+          displayedRows: JSON.parse(JSON.stringify(data.slice(1, this.rowsPerPage + 1))),
+          currentPage: 1,
+          totalRows: data.length - 1,
+          loading: false,
+          name: name,
+          modelInfo: null,
+          isCollapsed: true
         });
         this.creatingInstance = false;
-      }, 1000); // Simulating delay of 1 second
+      }, 1000);
     },
     deleteInstance(index) {
       this.dataInstances.splice(index, 1);
+    },
+    toggleCollapse(index) {
+      this.dataInstances[index].isCollapsed = !this.dataInstances[index].isCollapsed;
     }
-  },
+  }
 };
 </script>
 
-<style src="@/assets/styles.css" scoped></style>
+<style scoped>
+.file-upload-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.file-drop-area {
+  border: 2px dashed #bdc3c7;
+  padding: 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.file-drop-area:hover {
+  background-color: #ecf0f1;
+}
+
+.visually-hidden {
+  display: none;
+}
+
+.mt-5 {
+  margin-top: 3rem;
+}
+
+.mt-3 {
+  margin-top: 1rem;
+}
+
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+  border-width: 0.3rem;
+}
+
+.table-container {
+  max-height: 300px;
+  overflow-y: auto;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background-color: #ffffff;
+}
+
+.table {
+  width: 100%;
+  margin-bottom: 1rem;
+  background-color: transparent;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-bordered {
+  border: 1px solid #dee2e6;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.fixed-header {
+  position: sticky;
+  top: 0;
+  background: #2c3e50;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  text-align: left;
+}
+
+.table th, .table td {
+  padding: 12px;
+  border: 1px solid #dee2e6;
+}
+
+.table th {
+  background-color: #34495e;
+  color: #ffffff;
+  text-align: center;
+}
+
+.table td {
+  background-color: #ffffff;
+  text-align: left;
+}
+
+.button-center-container {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.btn {
+  cursor: pointer;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+  color: #fff;
+}
+
+.btn-success {
+  background-color: #28a745;
+  border-color: #28a745;
+  color: #fff;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: #fff;
+}
+
+.header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.header h3 {
+  font-size: 24px;
+  margin-right: 10px;
+  color: #2c3e50;
+}
+
+.header span {
+  font-size: 24px;
+  transition: transform 0.3s ease;
+}
+
+.header span.collapsed {
+  transform: rotate(180deg);
+}
+</style>
+
