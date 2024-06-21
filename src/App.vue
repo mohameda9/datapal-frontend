@@ -1,5 +1,5 @@
 <template>
-  <div class="file-upload-container">
+  <div class="body">
     <h1 class="text-center">DataPal - No Code ML</h1>
 
     <div class="container mt-5">
@@ -144,7 +144,7 @@ export default {
       uploadSuccess: false,
       uploadError: '',
       csvData: [],
-      displayedRows: [],
+      displayedRows: [], 
       rowsPerPage: 5,
       currentPage: 1,
       dataInstances: [],

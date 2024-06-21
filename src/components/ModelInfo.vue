@@ -2,7 +2,7 @@
    <div class="model-info-container" role="dialog">
      <div class="model-info">
        <div class="header" @click="toggleCollapse">
-         <h2 class="text-center">Model Zone!</h2>
+         <h2>Let's analyze!</h2>
          <span :class="{ 'arrow-down': isCollapsed, 'arrow-up': !isCollapsed }"></span>
        </div>
  
@@ -85,7 +85,7 @@
    data() {
      return {
        selectedModel: null,
-       isCollapsed: true
+       isCollapsed: false
      };
    },
    methods: {
@@ -123,7 +123,7 @@
  }
  
  .model-info {
-   width: 100%;
+   width:100%;
    padding: 20px;
    background-color: #ffffff;
    border-radius: 8px;
@@ -181,12 +181,12 @@
    margin: 5px;
    border: none;
    border-radius: 4px;
-   background-color: #bdc3c7;
+   background-color:lightsteelblue;
    color: #2c3e50;
    transition: background-color 0.3s ease, color 0.3s ease;
    font-size: 14px;
    flex: 1 1 auto;
-   max-width: 100px;
+   width: 100%;
    text-align: center;
  }
  

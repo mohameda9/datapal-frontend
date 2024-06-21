@@ -1,12 +1,9 @@
 /* styles.css */
 
 /* Set background color for the entire page */
-body {
-    background-color: rgb(255, 0, 51);
-    margin: 0;
-    font-family: Avenir, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+.body {
+    background-color:rgba(53, 68, 92, 0.736);
+    min-height: 5000px;
   }
   
   .text-center {
@@ -90,6 +87,12 @@ body {
     justify-content: center;
     align-items: center;
     width: 100%;
+  }
+
+  .file-drop-area {
+    width: 70%;
+    background-color:#3498db;
+
   }
 
   .scrollable-dropdown {
