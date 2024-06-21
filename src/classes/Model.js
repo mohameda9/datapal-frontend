@@ -49,9 +49,9 @@ export class LinearRegression extends Model {
    }
 }
 
-export class LassoRegression extends Model {
+export class LogisticRegression extends Model {
    constructor() {
-      super("Lasso Regression");   
+      super("Logistics Regression");   
       this._types = ["a", "b"];   
    }
 }

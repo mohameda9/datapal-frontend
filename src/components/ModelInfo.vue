@@ -2,7 +2,7 @@
    <div class="model-info-container" role="dialog">
      <div class="model-info">
        <div class="header" @click="toggleCollapse">
-         <h2>Let's analyze!</h2>
+         <h2 class="text-center">Model Zone!</h2>
          <span :class="{ 'arrow-down': isCollapsed, 'arrow-up': !isCollapsed }"></span>
        </div>
  
@@ -123,7 +123,7 @@
  }
  
  .model-info {
-   width: 60%;
+   width: 100%;
    padding: 20px;
    background-color: #ffffff;
    border-radius: 8px;

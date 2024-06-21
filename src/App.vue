@@ -61,19 +61,19 @@
                 </template>
 
                 <template v-slot:body>
-                  <p2> Select a column from below</p2>
+                  <p> Select a column from below</p>
                   <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedItem">
                     <option disabled value="">Open this select menu</option>
                     <option v-for="(value, key) in instance.data[0]" :key="key" :value="value">
                       {{ value }}
                     </option>
                   </CFormSelect>
-                </template>
+                </template> 
 
                 <template v-slot:footer>
                   <button @click="showonehot = false">Close</button>
                 </template>
-              </Modal>
+              </Modal> 
 
               <button class="btn btn-success mt-3" @click="ev => { instanceParent = instance.data; creatingInstance = true; }">
                 <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -81,19 +81,36 @@
               </button>
 
               <button class="btn btn-danger mt-3" @click="deleteInstance(index)">
-                <span>Delete Instance</span>
+                <span>Delete Instance  </span>
               </button>
             </div>
+            <CCard>
+              <CCardHeader>
+                Models 
+                <div class="addmodel-button-container">
 
-            <ModelInfo 
-              :models="this.models" 
-              :key="instance.modelInfo?.version" 
-              :variables="instance.data[0]"
-              @updateModel="(model) => {
-                console.log(model);
-                instance.model = model;
-                instance.model.version++;
-            }"></ModelInfo>
+                  <button class="btn btn-success mt-3" @click = "addnewModel(index)"> 
+                    &#43;
+                  </button>
+                </div>
+              </CCardHeader>
+
+              <div class="card-content">
+
+
+                <ModelInfo v-for="(value, key) in instance.models"
+                  :models="this.models" 
+                  :key="key"
+                  :variables="instance.data[0]"
+                  @updateModel="(model) => {
+                    console.log(model);
+                    console.log(value);
+                    console.log(key);
+                    instance.model = model;
+                    instance.model.version++;
+                }"></ModelInfo>
+              </div>
+            </CCard>
           </div>
         </div>
       </div>
@@ -116,7 +133,7 @@
 <script>
 import Modal from './components/Modal.vue';
 import ModelInfo from './components/ModelInfo.vue';
-import { LinearRegression, LassoRegression } from './classes/Model';
+import { LinearRegression, LogisticRegression } from './classes/Model';
 
 export default {
   name: 'FileUpload',
@@ -138,7 +155,7 @@ export default {
       parsing: false,
       models: [
         new LinearRegression(),
-        new LassoRegression()
+        new LogisticRegression()
       ]
     };
   },
@@ -235,13 +252,20 @@ export default {
           loading: false,
           name: name,
           modelInfo: null,
-          isCollapsed: true
+          isCollapsed: false,
+          models : []
         });
         this.creatingInstance = false;
       }, 1000);
     },
     deleteInstance(index) {
       this.dataInstances.splice(index, 1);
+    },
+    addnewModel(index){
+      const num_models = this.dataInstances[index].models.length
+      console.log(num_models);
+      this.dataInstances[index].models.push(num_models+1)
+      // this.dataInstances[index];
     },
     toggleCollapse(index) {
       this.dataInstances[index].isCollapsed = !this.dataInstances[index].isCollapsed;
@@ -250,149 +274,10 @@ export default {
 };
 </script>
 
-<style scoped>
-.file-upload-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px;
-  background-color: #f5f7fa;
-  min-height: 100vh;
-}
 
-.text-center {
-  text-align: center;
-}
 
-.file-drop-area {
-  border: 2px dashed #bdc3c7;
-  padding: 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
 
-.file-drop-area:hover {
-  background-color: #ecf0f1;
-}
+<style src="@/assets/styles.css" scoped></style>
 
-.visually-hidden {
-  display: none;
-}
 
-.mt-5 {
-  margin-top: 3rem;
-}
-
-.mt-3 {
-  margin-top: 1rem;
-}
-
-.spinner-border {
-  width: 3rem;
-  height: 3rem;
-  border-width: 0.3rem;
-}
-
-.table-container {
-  max-height: 300px;
-  overflow-y: auto;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  background-color: #ffffff;
-}
-
-.table {
-  width: 100%;
-  margin-bottom: 1rem;
-  background-color: transparent;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.table-bordered {
-  border: 1px solid #dee2e6;
-}
-
-.table-striped tbody tr:nth-of-type(odd) {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.fixed-header {
-  position: sticky;
-  top: 0;
-  background: #2c3e50;
-  color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 10px;
-  text-align: left;
-}
-
-.table th, .table td {
-  padding: 12px;
-  border: 1px solid #dee2e6;
-}
-
-.table th {
-  background-color: #34495e;
-  color: #ffffff;
-  text-align: center;
-}
-
-.table td {
-  background-color: #ffffff;
-  text-align: left;
-}
-
-.button-center-container {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 15px;
-}
-
-.btn {
-  cursor: pointer;
-}
-
-.btn-primary {
-  background-color: #007bff;
-  border-color: #007bff;
-  color: #fff;
-}
-
-.btn-success {
-  background-color: #28a745;
-  border-color: #28a745;
-  color: #fff;
-}
-
-.btn-danger {
-  background-color: #dc3545;
-  border-color: #dc3545;
-  color: #fff;
-}
-
-.header {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-}
-
-.header h3 {
-  font-size: 24px;
-  margin-right: 10px;
-  color: #2c3e50;
-}
-
-.header span {
-  font-size: 24px;
-  transition: transform 0.3s ease;
-}
-
-.header span.collapsed {
-  transform: rotate(180deg);
-}
-</style>
 
