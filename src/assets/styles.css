@@ -4,6 +4,7 @@
 .body {
     background-color:rgba(53, 68, 92, 0.736);
     min-height: 5000px;
+    min-width: 100%;
   }
   
   .text-center {
@@ -42,13 +43,14 @@
   
   /* Styles for the table container */
   .table-container {
-    border: 2px solid #000; /* Border around the table container */
+    border: 5px solid #000; /* Border around the table container */
     border-radius: 10px;
     max-height: 400px; /* Adjust max height as needed */
     overflow-y: auto; /* Enable vertical scrolling */
     margin: 20px auto; /* Center horizontally with margin */
     padding: 0px; /* Padding inside the table container */
     position: relative; /* Ensure relative positioning for absolute elements */
+    width: 100%;
   }
   
   /* Style for table headers */

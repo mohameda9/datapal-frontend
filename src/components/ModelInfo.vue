@@ -4,6 +4,11 @@
        <div class="header" @click="toggleCollapse">
          <h2>Let's analyze!</h2>
          <span :class="{ 'arrow-down': isCollapsed, 'arrow-up': !isCollapsed }"></span>
+
+         <button @click="deleteComponent"> 
+          <span> - </span>
+         </button>
+
        </div>
  
        <div v-show="!isCollapsed">
@@ -85,7 +90,8 @@
    data() {
      return {
        selectedModel: null,
-       isCollapsed: false
+       isCollapsed: false,
+       deleted: false
      };
    },
    methods: {
@@ -107,7 +113,10 @@
      },
      modelUpdated() {
        this.$emit('updateModel', this.selectedModel);
-     }
+     },
+     deleteComponent() {
+      this.$emit('deleteModel');
+    }
    }
  };
  </script>
