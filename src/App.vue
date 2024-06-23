@@ -1,18 +1,18 @@
 <template>
   <div class="body">
-    <h1 class="text-center">DataPal - No Code ML</h1>
+    <h1 class="page-title" >DataPal - No Code ML</h1>
 
-    <div class="container mt-5">
+    <div class="main-container" >
       <!-- Drop area for file upload -->
-      <div
-        class="file-drop-area text-center"
+      <div 
+        class="file-drop-area" 
         @dragover.prevent
         @dragenter.prevent
         @drop="handleFileDrop"
         @click="$refs.fileInput.click()"
       >
         <p v-if="!parsing">{{ dropMessage }}</p>
-        <div v-else class="spinner-border" role="status"></div>
+        <div v-else class="spinner-border" role="status" ></div>
         <input 
           type="file"
           class="visually-hidden"
@@ -20,24 +20,33 @@
           @change="handleFileChange"
           accept=".csv"
         >
-      </div>
+      </div> 
 
       <!-- Display instances of CSV data -->
       <div v-if="dataInstances.length > 0" class="mt-5">
-        <div v-for="(instance, index) in dataInstances" :key="index" class="mt-3 instance-container">
-          <div class="header" @click="toggleCollapse(index)">
-            <h3 class="text-center">Name: {{ instance.name }}</h3>
-            <span :class="{ collapsed: instance.isCollapsed }">&#9660;</span>
+        <div v-for="(instance, index) in dataInstances" :key="index" class="instance-container">
+          <div class="header">
+            <div class="header-content">
+              <button class="btn btn-success btn-very-small" @click="prepareNewInstance(instance)">
+                <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span v-else>Create New Instance</span>
+              </button>
+              <h3 class="text-center name-small" @click="toggleCollapse(index)">Name: {{ instance.name }}</h3>
+              <button class="btn btn-danger btn-very-small" @click="deleteInstance(index)">
+                <span>Delete Instance</span>
+              </button>
+            </div>
+            <span v-if="instance" :class="{ collapsed: instance.isCollapsed }">&#9660;</span>
           </div>
 
-          <div v-if="!instance.isCollapsed">
+          <div v-if="instance && !instance.isCollapsed">
             <div class="table-container" @scrollend="() => instance.displayedRows.length < instance.totalRows ? loadMoreRowsForInstance(index) : {}">
               <table class="table table-bordered table-striped">
-                <thead class="fixed-header">
+                <thead class="fixed-header"  >
                   <tr>
-                    <th v-for="(header, colIndex) in instance.data[0]" :key="colIndex">
+                    <th  v-for="(header, colIndex) in instance.data[0]" :key="colIndex" >
                       <CDropdown>
-                        <CDropdownToggle color="link" class="w-100 text-left">
+                        <CDropdownToggle class = "table-headers" color="white">
                           {{ header }}
                         </CDropdownToggle>
                         <CDropdownMenu>
@@ -94,21 +103,12 @@
                   <button @click="showonehot = false">Close</button>
                 </template>
               </Modal> 
-
-              <button class="btn btn-success mt-3" @click="prepareNewInstance(instance)">
-                <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                <span v-else>Create New Instance</span>
-              </button>
-
-              <button class="btn btn-danger mt-3" @click="deleteInstance(index)">
-                <span>Delete Instance</span>
-              </button>
             </div>
             <CCard>
               <CCardHeader>
                 Models 
                 <div class="addmodel-button-container">
-                  <button class="btn btn-success mt-3" @click="addnewModel(index)"> 
+                  <button class="btn btn-success mt-3 btn-very-small" @click="addnewModel(index)"> 
                     &#43;
                   </button>
                 </div>
@@ -343,7 +343,9 @@ export default {
       console.log(this.dataInstances[index].models);
     },
     toggleCollapse(index) {
-      this.dataInstances[index].isCollapsed = !this.dataInstances[index].isCollapsed;
+      if (this.dataInstances[index]) {
+        this.dataInstances[index].isCollapsed = !this.dataInstances[index].isCollapsed;
+      }
     },
     showErrorModalWithTimeout(message) {
       this.errorMessage = message;
@@ -374,6 +376,24 @@ export default {
   background-color: green;
   border-radius: 50%;
   display: inline-block;
+}
+
+.header-content {
+  color:aliceblue;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.btn-very-small {
+  font-size: 0.6rem;
+  padding: 0.2rem 0.4rem;
+}
+
+.name-small {
+  font-size: 1rem;
+  margin: 0;
 }
 </style>
 

@@ -1,40 +1,3 @@
-<script>
-export default {
-  name: 'ModalInstance',
-  props: {
-    existingNames: {
-      type: Array,
-      required: true
-    }
-  },
-  methods: {
-    close() {
-      console.log(this.name);
-      this.$emit('close', this.name);
-    },
-    submitName() {
-      console.log(this.existingNames);
-      if (!this.name) {
-        this.errorMessage = "Name cannot be blank";
-        return;
-      } else if (this.existingNames.includes(this.name)) {
-        this.errorMessage = "Name already exists, should be unique";
-        return;
-      } else {
-        this.$emit('submitName', this.name);
-        this.close();
-      }
-    }
-  },
-  data() {
-    return {
-      name: "",
-      errorMessage: ""
-    };
-  }
-};
-</script>
-
 <template>
   <div class="ModalInstance-backdrop" role="dialog" aria-labelledby="modal-title" aria-describedby="modal-desc">
     <div class="ModalInstance">
@@ -47,24 +10,66 @@ export default {
 
       <section class="ModalInstance-body" id="modal-desc">
         <slot name="body">
-            <p1> instance name: </p1>
-          <input v-model="name" aria-describedby="error-message"/>
+          <p>Instance name:</p>
+          <input v-model="name" aria-describedby="error-message" />
           <div v-if="errorMessage" class="error-message" id="error-message">{{ errorMessage }}</div>
         </slot>
       </section>
 
       <footer class="ModalInstance-footer">
         <slot name="footer">
-            <button type="button" class="btn-green" @click="submitName">
+          <button type="button" class="btn-green" @click="submitName">
             Save name
-            </button>
+          </button>
         </slot>
       </footer>
     </div>
   </div>
 </template>
 
+<script>
+export default {
+  name: 'ModalInstance',
+  props: {
+    existingNames: {
+      type: Array,
+      required: true
+    }
+  },
+  data() {
+    return {
+      name: "",
+      errorMessage: ""
+    };
+  },
+  methods: {
+    close() {
+      this.$emit('close', this.name);
+    },
+    submitName() {
+      if (!this.name) {
+        this.errorMessage = "Name cannot be blank";
+        return;
+      } else if (this.existingNames.includes(this.name)) {
+        this.errorMessage = "Name already exists, should be unique";
+        return;
+      } else {
+        this.$emit('submitName', this.name);
+        this.close();
+      }
+    }
+  }
+};
+</script>
+
 <style>
+body, html, #app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
 .ModalInstance-backdrop {
   z-index: 1000;
   position: fixed;
@@ -84,12 +89,19 @@ export default {
   overflow-x: auto;
   display: flex;
   flex-direction: column;
+  width: 400px; /* Adjust width as necessary */
+  max-width: 90%;
+  max-height: 50%; /* Ensure the modal does not overflow the viewport */
+  margin: 0;
+  padding: 0;
 }
 
 .ModalInstance-header,
 .ModalInstance-footer {
   padding: 15px;
   display: flex;
+  align-items: center;
+  margin: 0;
 }
 
 .ModalInstance-header {
@@ -101,19 +113,22 @@ export default {
 
 .ModalInstance-footer {
   border-top: 1px solid #eeeeee;
-  flex-direction: column;
   justify-content: flex-end;
 }
 
 .ModalInstance-body {
-  position: relative;
   padding: 20px 10px;
+  flex-grow: 1; /* Ensure the body grows to fill available space */
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center the content vertically */
+  margin: 0;
 }
 
 .btn-close {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 10px;
+  right: 10px;
   border: none;
   font-size: 20px;
   padding: 10px;
@@ -128,6 +143,7 @@ export default {
   background: #4AAE9B;
   border: 1px solid #4AAE9B;
   border-radius: 2px;
+  padding: 10px 20px; /* Ensure consistent padding */
 }
 
 .error-message {
