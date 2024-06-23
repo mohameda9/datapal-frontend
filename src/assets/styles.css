@@ -184,11 +184,12 @@
     overflow-y: auto;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
+    width: 99%;
     background-color: #ffffff;
   }
   
   .table {
-    width: 100%;
+    width: 97%;
     margin-bottom: 1rem;
     background-color: transparent;
     border-collapse: separate;
@@ -261,6 +262,7 @@
   .instance-container{
     border: 3px solid #2c3e50;
     border-radius: 0.5%;
+    margin-bottom: 2%;
 
   }
   

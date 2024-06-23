@@ -1,26 +1,26 @@
 <template>
   <div class="body">
-    <h1 class="page-title" >DataPal - No Code ML</h1>
+    <h1 class="page-title">DataPal - No Code ML</h1>
 
-    <div class="main-container" >
+    <div class="main-container">
       <!-- Drop area for file upload -->
-      <div 
-        class="file-drop-area" 
+      <div
+        class="file-drop-area"
         @dragover.prevent
         @dragenter.prevent
         @drop="handleFileDrop"
         @click="$refs.fileInput.click()"
       >
         <p v-if="!parsing">{{ dropMessage }}</p>
-        <div v-else class="spinner-border" role="status" ></div>
-        <input 
+        <div v-else class="spinner-border" role="status"></div>
+        <input
           type="file"
           class="visually-hidden"
           ref="fileInput"
           @change="handleFileChange"
           accept=".csv"
         >
-      </div> 
+      </div>
 
       <!-- Display instances of CSV data -->
       <div v-if="dataInstances.length > 0" class="mt-5">
@@ -42,26 +42,39 @@
           <div v-if="instance && !instance.isCollapsed">
             <div class="table-container" @scrollend="() => instance.displayedRows.length < instance.totalRows ? loadMoreRowsForInstance(index) : {}">
               <table class="table table-bordered table-striped">
-                <thead class="fixed-header"  >
+                <thead class="fixed-header">
                   <tr>
-                    <th  v-for="(header, colIndex) in instance.data[0]" :key="colIndex" >
+                    <th v-for="(header, colIndex) in instance.data[0]" :key="colIndex">
                       <CDropdown>
-                        <CDropdownToggle class = "table-headers" color="white">
+                        <CDropdownToggle class="table-headers">
                           {{ header }}
                         </CDropdownToggle>
                         <CDropdownMenu>
-                          <CDropdownItem @click="changeMetricType(colIndex, 'numeric', index)">
+                          <CDropdownItem @click="changeMetricType(header, 'numeric', index)">
                             <span class="d-flex align-items-center">
                               Numeric
-                              <span v-if="instance.dataTypes[colIndex] === 'numeric'" class="active-indicator ml-2"></span>
+                              <span v-if="instance.dataTypes[header] === 'numeric'" class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-                          <CDropdownItem @click="changeMetricType(colIndex, 'categorical', index)">
+                          <CDropdownItem @click="changeMetricType(header, 'categorical', index)">
                             <span class="d-flex align-items-center">
                               Categorical
-                              <span v-if="instance.dataTypes[colIndex] === 'categorical'" class="active-indicator ml-2"></span>
+                              <span v-if="instance.dataTypes[header] === 'categorical'" class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
+                          <CDropdownItem @click="changeMetricType(header, 'binary', index)">
+                            <span class="d-flex align-items-center">
+                              Binary
+                              <span v-if="instance.dataTypes[header] === 'binary'" class="active-indicator ml-2"></span>
+                            </span>
+                          </CDropdownItem>
+                          <CDropdownItem @click="changeMetricType(header, 'date', index)">
+                            <span class="d-flex align-items-center">
+                              Date
+                              <span v-if="instance.dataTypes[header] === 'date'" class="active-indicator ml-2"></span>
+                            </span>
+                          </CDropdownItem>
+
                         </CDropdownMenu>
                       </CDropdown>
                     </th>
@@ -79,49 +92,66 @@
               <CDropdown>
                 <CDropdownToggle color="primary">Feature Engineering options</CDropdownToggle>
                 <CDropdownMenu>
-                  <CDropdownItem href="#" @click="showonehot = true">One hot encoding</CDropdownItem>
-                  <CDropdownItem href="#">Another action</CDropdownItem>
+                  <CDropdownItem href="#" @click="showonehotmodal = true">One hot encoding</CDropdownItem>
+                  <CDropdownItem href="#" @click="shownormalizemodal = true">Normalize columns</CDropdownItem>
                 </CDropdownMenu>
               </CDropdown>
 
-              <Modal v-if="showonehot" @close="showonehot = false">
+              <Modal v-if="showonehotmodal" @close="showonehotmodal = false">
                 <template v-slot:header>
-                  <h2> One hot encoding </h2>
+                  <h2>One hot encoding</h2>
                 </template>
 
                 <template v-slot:body>
-                  <p> Select a column from below</p>
+                  <p>Select a categorical column to one hot encode</p>
                   <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedItem">
                     <option disabled value="">Open this select menu</option>
-                    <option v-for="(value, key) in instance.data[0]" :key="key" :value="value">
+                    <option v-for="(value, key) in getColumnNamesByType(instance, 'categorical')" :key="key" :value="value">
                       {{ value }}
                     </option>
                   </CFormSelect>
-                </template> 
+                </template>
 
                 <template v-slot:footer>
-                  <button @click="showonehot = false">Close</button>
+                  <button @click="showonehotmodal = false">Close</button>
                 </template>
-              </Modal> 
+              </Modal>
+              <Modal v-if="shownormalizemodal" @close="shownormalizemodal = false">
+                <template v-slot:header>
+                  <h2>One hot encoding</h2>
+                </template>
+
+                <template v-slot:body>
+                  <p>Select a numerical column to normalize</p>
+                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedItem">
+                    <option disabled value="">Open this select menu</option>
+                    <option v-for="(value, key) in getColumnNamesByType(instance, 'numeric')" :key="key" :value="value">
+                      {{ value }}
+                    </option>
+                  </CFormSelect>
+                </template>
+
+                <template v-slot:footer>
+                  <button @click="shownormalizemodal = false">Close</button>
+                </template>
+              </Modal>
             </div>
             <CCard>
               <CCardHeader>
-                Models 
+                Models
                 <div class="addmodel-button-container">
-                  <button class="btn btn-success mt-3 btn-very-small" @click="addnewModel(index)"> 
+                  <button class="btn btn-success mt-3 btn-very-small" @click="addnewModel(index)">
                     &#43;
                   </button>
                 </div>
               </CCardHeader>
               <div class="card-content">
                 <ModelInfo v-for="(value, key) in instance.models"
-                  :models="this.models" 
+                  :models="this.models"
                   :key="key"
                   :variables="instance.data[0]"
                   @deleteModel="key => {
-                    console.log(instance.models);
                     instance.models.splice(key, 1);
-                    console.log(instance.models);
                   }"
                   @updateModel="model => {
                     console.log(model);
@@ -146,7 +176,7 @@
 
         <template v-slot:body>
           <p>{{ errorMessage }}</p>
-        </template> 
+        </template>
 
         <template v-slot:footer>
           <button class="btn btn-danger" @click="showErrorModal = false">Close</button>
@@ -155,9 +185,9 @@
     </div>
   </div>
 
-  <Modal 
-    v-if="creatingInstance" 
-    @close="creatingInstance = false" 
+  <Modal
+    v-if="creatingInstance"
+    @close="creatingInstance = false"
     @submitName="name => createNewInstance({ data: instanceParent, name, dataTypes: currentDataTypes })"
     :existingNames="dataInstances.map(instance => instance.name)"
   />
@@ -181,7 +211,9 @@ export default {
   name: 'FileUpload',
   data() {
     return {
-      showonehot: false,
+      showonehotmodal: false,
+      shownormalizemodal: false,
+
       file: null,
       uploadSuccess: false,
       uploadError: '',
@@ -193,7 +225,7 @@ export default {
       loading: false,
       creatingInstance: false,
       instanceParent: [],
-      currentDataTypes: [], // New property to store data types for the new instance
+      currentDataTypes: {}, // New property to store data types for the new instance
       instanceName: "",
       parsing: false,
       models: [
@@ -257,7 +289,7 @@ export default {
       const headers = rows[0].split(',');
       const data = rows.slice(1).map(row => row.split(','));
 
-      const dataTypes = this.determineDataTypes(data);
+      const dataTypes = this.determineDataTypes(data, headers);
       this.csvDataTypes = dataTypes; // Store data types
 
       this.csvData = [headers, ...data];
@@ -273,19 +305,50 @@ export default {
         }
       }, 1);
     },
-    determineDataTypes(data) {
-      const dataTypes = data[0].map(() => 'categorical');
+    determineDataTypes(data, headers) {
+    const dataTypes = {};
+    headers.forEach(header => {
+      dataTypes[header] = 'categorical';
+    });
 
-      data.forEach(row => {
-        row.forEach((value, index) => {
-          if (!isNaN(value) && value.trim() !== '') {
-            dataTypes[index] = 'numeric';
-          }
-        });
-      });
+  headers.forEach((header, index) => {
+    let isNumeric = true;
+    let isDate = true;
+    const uniqueValues = new Set();
 
-      return dataTypes;
-    },
+    data.forEach(row => {
+      const value = row[index].trim();
+      uniqueValues.add(value);
+
+      // Check if the value is numeric
+      if (isNaN(value) || value === '') {
+        isNumeric = false;
+      }
+
+      // Check if the value is a valid date
+      if (!this.isValidDate(value)) {
+        isDate = false;
+      }
+    });
+
+    if (uniqueValues.size === 2) {
+      dataTypes[header] = 'binary';
+    } else if (isNumeric) {
+      dataTypes[header] = 'numeric';
+    } else if (isDate) {
+      dataTypes[header] = 'date';
+    }
+  });
+
+  return dataTypes;
+},
+
+  isValidDate(dateString) {
+    // Try to create a date object from the string
+    const date = new Date(dateString);
+    // Check if the date is valid and the parsed date matches the input date
+    return date instanceof Date && !isNaN(date);
+  },
     loadMoreRows() {
       this.loading = true;
       setTimeout(() => {
@@ -338,9 +401,7 @@ export default {
     },
     addnewModel(index) {
       const num_models = this.dataInstances[index].models.length;
-      console.log(num_models);
       this.dataInstances[index].models.push(num_models);
-      console.log(this.dataInstances[index].models);
     },
     toggleCollapse(index) {
       if (this.dataInstances[index]) {
@@ -352,18 +413,36 @@ export default {
       this.showErrorModal = true;
       setTimeout(() => {
         this.showErrorModal = false;
-      }, 1000); // Hide the modal after 5 seconds
+      }, 1000); // Hide the modal after 1 second
     },
-    changeMetricType(colIndex, type, instanceIndex) {
-      const currentType = this.dataInstances[instanceIndex].dataTypes[colIndex];
-      if (currentType === 'categorical' && type === 'numeric') {
-        const isConvertible = this.dataInstances[instanceIndex].data.slice(1).every(row => !isNaN(row[colIndex]) && row[colIndex].trim() !== '');
-        if (!isConvertible) {
-          this.showErrorModalWithTimeout(`Column ${this.dataInstances[instanceIndex].data[0][colIndex]} cannot be converted to numeric.`);
-          return;
-        }
-      }
-      this.dataInstances[instanceIndex].dataTypes[colIndex] = type;
+    changeMetricType(columnName, type, instanceIndex) {
+  const colIndex = this.dataInstances[instanceIndex].data[0].indexOf(columnName);
+  let isConvertible = true;
+
+  if (type === 'numeric') {
+    // Check if all values can be converted to numeric
+    isConvertible = this.dataInstances[instanceIndex].data.slice(1).every(row => !isNaN(row[colIndex]) && row[colIndex].trim() !== '');
+  } else if (type === 'binary') {
+    // Check if there are only two unique values
+    const uniqueValues = new Set(this.dataInstances[instanceIndex].data.slice(1).map(row => row[colIndex].trim()));
+    isConvertible = uniqueValues.size === 2;
+  } else if (type === 'date') {
+    // Check if all values can be converted to valid dates
+    isConvertible = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isValidDate(row[colIndex].trim()));
+  }
+
+  if (!isConvertible) {
+    this.showErrorModalWithTimeout(`Column ${columnName} cannot be converted to ${type}.`);
+    return;
+  }
+
+  this.dataInstances[instanceIndex].dataTypes[columnName] = type;
+  console.log(this.dataInstances[instanceIndex].dataTypes);
+},
+
+
+    getColumnNamesByType(dataInstance, columnType) {
+      return Object.keys(dataInstance.dataTypes).filter(key => dataInstance.dataTypes[key] === columnType);
     }
   }
 };
@@ -379,7 +458,7 @@ export default {
 }
 
 .header-content {
-  color:aliceblue;
+  color: wheat;
   display: flex;
   justify-content: space-between;
   align-items: center;
