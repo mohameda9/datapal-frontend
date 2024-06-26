@@ -11,12 +11,13 @@
     "@coreui/icons": "^3.0.1",
     "@coreui/vue": "^5.1.0",
     "@floating-ui/vue": "^1.0.6",
+    "axios": "^1.7.2",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.11.3",
     "bootstrap-vue": "^2.23.1",
     "bootstrap-vue-3": "^0.5.1",
     "core-js": "^3.8.3",
-    "vue": "^3.2.13",
+    "vue": "^3.1.0",
     "vue-tables-2": "^2.3.5"
   },
   "devDependencies": {

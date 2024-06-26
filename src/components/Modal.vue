@@ -18,7 +18,7 @@
 
       <footer class="ModalInstance-footer">
         <slot name="footer">
-          <button type="button" class="btn-green" @click="submitName">
+          <button type="button" class="btn-green" @click="submit">
             Save name
           </button>
         </slot>
@@ -46,7 +46,8 @@ export default {
     close() {
       this.$emit('close', this.name);
     },
-    submitName() {
+    submit() {
+      console.log("aaaaa")
       if (!this.name) {
         this.errorMessage = "Name cannot be blank";
         return;
@@ -54,7 +55,7 @@ export default {
         this.errorMessage = "Name already exists, should be unique";
         return;
       } else {
-        this.$emit('submitName', this.name);
+        this.$emit('submit', this.name);
         this.close();
       }
     }

@@ -24,23 +24,23 @@
 
       <!-- Display instances of CSV data -->
       <div v-if="dataInstances.length > 0" class="mt-5">
-        <div v-for="(instance, index) in dataInstances" :key="index" class="instance-container">
+        <div v-for="(instance, instanceIndex) in dataInstances" :key="instanceIndex" class="instance-container">
           <div class="header">
             <div class="header-content">
               <button class="btn btn-success btn-very-small" @click="prepareNewInstance(instance)">
                 <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 <span v-else>Create New Instance</span>
               </button>
-              <h3 class="text-center name-small" @click="toggleCollapse(index)">Name: {{ instance.name }}</h3>
-              <button class="btn btn-danger btn-very-small" @click="deleteInstance(index)">
+              <h3 class="text-center name-small" >Name: {{ instance.name }}</h3>
+              <button class="btn btn-danger btn-very-small" @click="confirmDelete(instanceIndex)">
                 <span>Delete Instance</span>
               </button>
             </div>
-            <span v-if="instance" :class="{ collapsed: instance.isCollapsed }">&#9660;</span>
+            <span v-if="instance" :class="{ collapsed: instance.isCollapsed }" @click="toggleCollapse(instanceIndex)">&#9660;</span>
           </div>
 
           <div v-if="instance && !instance.isCollapsed">
-            <div class="table-container" @scrollend="() => instance.displayedRows.length < instance.totalRows ? loadMoreRowsForInstance(index) : {}">
+            <div class="table-container" @scrollend="() => instance.displayedRows.length < instance.totalRows ? loadMoreRowsForInstance(instanceIndex) : {}">
               <table class="table table-bordered table-striped">
                 <thead class="fixed-header">
                   <tr>
@@ -50,31 +50,30 @@
                           {{ header }}
                         </CDropdownToggle>
                         <CDropdownMenu>
-                          <CDropdownItem @click="changeMetricType(header, 'numeric', index)">
+                          <CDropdownItem @click="changeMetricType(header, 'numeric', instanceIndex)">
                             <span class="d-flex align-items-center">
                               Numeric
                               <span v-if="instance.dataTypes[header] === 'numeric'" class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-                          <CDropdownItem @click="changeMetricType(header, 'categorical', index)">
+                          <CDropdownItem @click="changeMetricType(header, 'categorical', instanceIndex)">
                             <span class="d-flex align-items-center">
                               Categorical
                               <span v-if="instance.dataTypes[header] === 'categorical'" class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-                          <CDropdownItem @click="changeMetricType(header, 'binary', index)">
+                          <CDropdownItem @click="changeMetricType(header, 'binary', instanceIndex)">
                             <span class="d-flex align-items-center">
                               Binary
                               <span v-if="instance.dataTypes[header] === 'binary'" class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-                          <CDropdownItem @click="changeMetricType(header, 'date', index)">
+                          <CDropdownItem @click="changeMetricType(header, 'date', instanceIndex)">
                             <span class="d-flex align-items-center">
                               Date
                               <span v-if="instance.dataTypes[header] === 'date'" class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-
                         </CDropdownMenu>
                       </CDropdown>
                     </th>
@@ -101,10 +100,10 @@
                 <template v-slot:header>
                   <h2>One hot encoding</h2>
                 </template>
-
+ 
                 <template v-slot:body>
                   <p>Select a categorical column to one hot encode</p>
-                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedItem">
+                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" :model-value="test" >
                     <option disabled value="">Open this select menu</option>
                     <option v-for="(value, key) in getColumnNamesByType(instance, 'categorical')" :key="key" :value="value">
                       {{ value }}
@@ -113,12 +112,12 @@
                 </template>
 
                 <template v-slot:footer>
-                  <button @click="showonehotmodal = false">Close</button>
+                  <button @click= "featureEngineering(model-value, instanceIndex )">Submit</button>
                 </template>
               </Modal>
               <Modal v-if="shownormalizemodal" @close="shownormalizemodal = false">
                 <template v-slot:header>
-                  <h2>One hot encoding</h2>
+                  <h2>Normalize column values</h2>
                 </template>
 
                 <template v-slot:body>
@@ -140,14 +139,14 @@
               <CCardHeader>
                 Models
                 <div class="addmodel-button-container">
-                  <button class="btn btn-success mt-3 btn-very-small" @click="addnewModel(index)">
-                    &#43;
+                  <button class="btn btn-success mt-3 btn-very-small"  @click="addnewModel(instanceIndex)">
+                    &#43;  
                   </button>
                 </div>
               </CCardHeader>
               <div class="card-content">
                 <ModelInfo v-for="(value, key) in instance.models"
-                  :models="this.models"
+                  :models="value"
                   :key="key"
                   :variables="instance.data[0]"
                   @deleteModel="key => {
@@ -183,14 +182,15 @@
         </template>
       </Modal>
     </div>
-  </div>
 
   <Modal
     v-if="creatingInstance"
     @close="creatingInstance = false"
-    @submitName="name => createNewInstance({ data: instanceParent, name, dataTypes: currentDataTypes })"
+    @submit="name => createNewInstance({ data: instanceParent, name, dataTypes: currentDataTypes })"
     :existingNames="dataInstances.map(instance => instance.name)"
   />
+</div>
+
 </template>
 
 <script>
@@ -206,6 +206,9 @@ import {
   CCard,
   CCardHeader
 } from '@coreui/vue';
+
+
+import axios from '@/axios.js'; // Path to the axios.js file
 
 export default {
   name: 'FileUpload',
@@ -265,19 +268,23 @@ export default {
       const droppedFile = event.dataTransfer.files[0];
       this.handleFile(droppedFile);
     },
-    handleFile(file) {
+    async handleFile(file) {
       if (file && file.type === 'text/csv') {
         this.file = file;
         this.uploadError = '';
         this.parsing = true;
         this.readCSV(file);
+        const testResponse = await axios.get('/test', {
+        params: { k: 'yes' },
+        });
+        console.log(testResponse.data)
       } else {
         this.file = null;
         this.uploadError = 'Please choose a valid CSV file.';
       }
     },
     readCSV(file) {
-      const reader = new FileReader();
+      const reader = new FileReader(); 
       reader.onload = (e) => {
         const csv = e.target.result;
         this.parseCSV(csv);
@@ -309,15 +316,15 @@ export default {
     const dataTypes = {};
     headers.forEach(header => {
       dataTypes[header] = 'categorical';
-    });
+      });
 
-  headers.forEach((header, index) => {
-    let isNumeric = true;
-    let isDate = true;
-    const uniqueValues = new Set();
+    headers.forEach((header, instanceIndex) => {
+      let isNumeric = true;
+      let isDate = true;
+      const uniqueValues = new Set();
 
-    data.forEach(row => {
-      const value = row[index].trim();
+      data.forEach(row => {
+      const value = row[instanceIndex].trim();
       uniqueValues.add(value);
 
       // Check if the value is numeric
@@ -361,10 +368,10 @@ export default {
         this.loading = false;
       }, 1000);
     },
-    loadMoreRowsForInstance(index) {
-      this.dataInstances[index].loading = true;
+    loadMoreRowsForInstance(instanceIndex) {
+      this.dataInstances[instanceIndex].loading = true;
       setTimeout(() => {
-        const instance = this.dataInstances[index];
+        const instance = this.dataInstances[instanceIndex];
         const startIndex = instance.currentPage * this.rowsPerPage + 1;
         const endIndex = startIndex + this.rowsPerPage;
         if (startIndex < instance.data.length) {
@@ -396,16 +403,21 @@ export default {
         this.creatingInstance = false;
       }, 1000);
     },
-    deleteInstance(index) {
-      this.dataInstances.splice(index, 1);
+    confirmDelete(instanceIndex) {
+      if (window.confirm('Are you sure you want to delete this instance?')) {
+        this.deleteInstance(instanceIndex);
+      }
     },
-    addnewModel(index) {
-      const num_models = this.dataInstances[index].models.length;
-      this.dataInstances[index].models.push(num_models);
+    deleteInstance(instanceIndex) {
+      this.dataInstances.splice(instanceIndex, 1);
     },
-    toggleCollapse(index) {
-      if (this.dataInstances[index]) {
-        this.dataInstances[index].isCollapsed = !this.dataInstances[index].isCollapsed;
+    addnewModel(instanceIndex) {
+      
+      this.dataInstances[instanceIndex].models.push(this.models);
+    },
+    toggleCollapse(instanceIndex) {
+      if (this.dataInstances[instanceIndex]) {
+        this.dataInstances[instanceIndex].isCollapsed = !this.dataInstances[instanceIndex].isCollapsed;
       }
     },
     showErrorModalWithTimeout(message) {
@@ -443,10 +455,48 @@ export default {
 
     getColumnNamesByType(dataInstance, columnType) {
       return Object.keys(dataInstance.dataTypes).filter(key => dataInstance.dataTypes[key] === columnType);
+    },
+
+    async featureEngineering(columnName, instanceIndex){
+      console.log("fe")
+      console.log(columnName)
+      const instance = this.dataInstances[instanceIndex];
+      console.log(instance)
+
+      const dataToSend = {
+          data: instance.data.map(row => ({ columns: row }))
+        };
+
+      console.log(dataToSend)
+
+      const response = await axios.post('/onehotencoding', dataToSend, {
+        params: {
+          column_name: columnName
+        }
+      });
+
+      console.log(response)
+
+      const updatedData = JSON.parse(response.data.data);
+      instance.data = [Object.keys(updatedData[0]), ...updatedData.map(row => Object.values(row))];
+
+      this.showonehotmodal = false
+
     }
+ 
+
   }
 };
+
+
+
+
+
 </script>
+
+
+
+
 
 <style scoped>
 .active-indicator {
