@@ -289,3 +289,47 @@
   .header span.collapsed {
     transform: rotate(180deg);
   }
+
+  .active-indicator {
+    width: 10px;
+    height: 10px;
+    background-color: green;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  
+  .header-content {
+    color: wheat;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .btn-very-small {
+    font-size: 0.6rem;
+    padding: 0.2rem 0.4rem;
+  }
+  
+  .name-small {
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  .adding-model-interface.ModalInstance {
+    width: 3%; /* Adjust width as needed */
+    max-width: 90%;
+    max-height: 50%; /* Ensure the modal does not overflow the viewport */
+
+  }
+
+  .goto-build-phase{
+    margin-top: 0.5%;
+    margin-bottom: 0.5%;
+    margin-left: 25%;
+    height: 50px;
+    max-height: fit-content;
+    background-color: #fff;
+
+    width: 50%
+  }

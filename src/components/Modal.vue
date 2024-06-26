@@ -90,7 +90,7 @@ body, html, #app {
   overflow-x: auto;
   display: flex;
   flex-direction: column;
-  width: 400px; /* Adjust width as necessary */
+  width: 800px; /* Adjust width as necessary */
   max-width: 90%;
   max-height: 50%; /* Ensure the modal does not overflow the viewport */
   margin: 0;

@@ -63,11 +63,39 @@
                       {{ variable }}
                     </button>
                   </div>
+                  <div v-if="property.expects === 'boolean'" class="property-options boolean-property">
+                    <span>{{ property.name }}</span>
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="property.value"
+                        @change="toggleBooleanProperty(index)"
+                      />
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                  <div v-if="property.expects === 'number'" class="property-options number-property">
+                    <input
+                      type="number"
+                      v-model.number="property.value"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      @change="modelUpdated"
+                      class="input-field"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
+        <!-- Submit Model button -->
+        <div v-if="canSubmitModel" class="centered-section">
+          <button @click="submitModel" class="submit-button">Submit Model</button>
+        </div>
+        
       </div>
     </div>
   </div>
@@ -93,6 +121,14 @@ export default {
       deleted: false
     };
   },
+  computed: {
+    canSubmitModel() {
+      if (!this.selectedModel) return false;
+      return this.selectedModel._properties.every(property => 
+        property.isValid || this.isDefaultProperty(property)
+      );
+    }
+  },
   methods: {
     toggleCollapse() {
       this.isCollapsed = !this.isCollapsed;
@@ -110,11 +146,28 @@ export default {
       this.selectedModel.updateProperty(index, value);
       this.modelUpdated();
     },
+    toggleBooleanProperty(index) {
+      this.selectedModel._properties[index].value = !this.selectedModel._properties[index].value;
+      this.modelUpdated();
+    },
     modelUpdated() {
       this.$emit('updateModel', this.selectedModel);
     },
     deleteComponent() {
       this.$emit('deleteModel');
+    },
+    submitModel() {
+      const selectedValues = this.selectedModel._properties.reduce((acc, property) => {
+        acc[property.name] = property.value;
+        return acc;
+      }, {});
+      console.log(selectedValues);
+      this.$emit('submittingModel', selectedValues);
+    },
+    isDefaultProperty(property) {
+      // Check if the property is one of the default properties with pre-set values
+      const defaultProperties = ['Train Size', 'Add Intercept'];
+      return defaultProperties.includes(property.name);
     }
   }
 };
@@ -170,17 +223,18 @@ export default {
 }
 
 .info-section {
-  margin-top: 0px;
+  margin-top: 20px;
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
-
 
 .model-list,
 .type-list {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
+  width: 100%;
 }
 
 .model-list button,
@@ -215,10 +269,13 @@ export default {
 
 .property-item {
   margin-bottom: 5%;
+  width: 100%;
 }
 
 .property-description {
   font-weight: bold;
+  margin-bottom: 10px;
+  text-align: center;
 }
 
 .property-options {
@@ -227,17 +284,126 @@ export default {
   gap: 5px;
   justify-items: center;
   max-height: fit-content;
+  width: 100%;
+}
+
+.boolean-property {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.number-property {
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 .property-list {
   display: flex;
   flex-direction: column;
-  /* flex-wrap: wrap; this fixes the issue */ 
   max-height: fit-content;
-  margin-bottom: 0; /* Remove bottom margin */
+  margin-bottom: 0;
+  width: 100%;
 }
 
 .model-info-container > .model-info {
-  margin-bottom: 0; /* Remove bottom margin */
+  margin-bottom: 0;
+}
+
+/* New styles for input fields */
+.centered-section {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+.input-label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  text-align: center;
+}
+
+.input-field {
+  width: 50%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.checkbox-field {
+  margin-bottom: 15px;
+}
+
+/* Toggle switch styles */
+.switch {
+  position: relative;
+  display: inline-flex;
+  width: 60px;
+  height: 34px;
+  margin-left: 10px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+/* Submit button styles */
+.submit-button {
+  cursor: pointer;
+  padding: 10px 20px;
+  margin-top: 20px;
+  border: none;
+  border-radius: 4px;
+  background-color: #2ecc71;
+  color: #ffffff;
+  transition: background-color 0.3s ease;
+  font-size: 16px;
+  text-align: center;
+}
+
+.submit-button:hover {
+  background-color: #27ae60;
 }
 </style>

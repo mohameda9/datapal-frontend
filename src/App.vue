@@ -31,7 +31,7 @@
                 <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 <span v-else>Create New Instance</span>
               </button>
-              <h3 class="text-center name-small" >Name: {{ instance.name }}</h3>
+              <h3 class="text-center name-small">Name: {{ instance.name }}</h3>
               <button class="btn btn-danger btn-very-small" @click="confirmDelete(instanceIndex)">
                 <span>Delete Instance</span>
               </button>
@@ -87,32 +87,33 @@
               </table>
             </div>
 
-            <div class="button-center-container">
+            <div v-if = "!instance.isinbuildingModelPhase" class="button-center-container">
               <CDropdown>
                 <CDropdownToggle color="primary">Feature Engineering options</CDropdownToggle>
                 <CDropdownMenu>
-                  <CDropdownItem href="#" @click="showonehotmodal = true">One hot encoding</CDropdownItem>
-                  <CDropdownItem href="#" @click="shownormalizemodal = true">Normalize columns</CDropdownItem>
+                  <CDropdownItem href="#" @click="showonehotmodal = true; currentInstanceIndex = instanceIndex;">One hot encoding</CDropdownItem>
+                  <CDropdownItem href="#" @click="shownormalizemodal = true; currentInstanceIndex = instanceIndex;">Normalize columns</CDropdownItem>
                 </CDropdownMenu>
               </CDropdown>
 
-              <Modal v-if="showonehotmodal" @close="showonehotmodal = false">
+              <Modal v-if="showonehotmodal " @close="showonehotmodal = false">
                 <template v-slot:header>
                   <h2>One hot encoding</h2>
                 </template>
- 
+
                 <template v-slot:body>
                   <p>Select a categorical column to one hot encode</p>
-                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" :model-value="test" >
+                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedValue" @change="updateRelevantEvent">
                     <option disabled value="">Open this select menu</option>
-                    <option v-for="(value, key) in getColumnNamesByType(instance, 'categorical')" :key="key" :value="value">
+                    <option v-for="(value, key) in getColumnNamesByType(dataInstances[currentInstanceIndex], 'categorical')" :key="key" :value="value">
                       {{ value }}
                     </option>
                   </CFormSelect>
+
                 </template>
 
                 <template v-slot:footer>
-                  <button @click= "featureEngineering(model-value, instanceIndex )">Submit</button>
+                  <button @click="featureEngineering(selectedValue, currentInstanceIndex)">Submit</button>
                 </template>
               </Modal>
               <Modal v-if="shownormalizemodal" @close="shownormalizemodal = false">
@@ -124,7 +125,7 @@
                   <p>Select a numerical column to normalize</p>
                   <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedItem">
                     <option disabled value="">Open this select menu</option>
-                    <option v-for="(value, key) in getColumnNamesByType(instance, 'numeric')" :key="key" :value="value">
+                    <option v-for="(value, key) in getColumnNamesByType(dataInstances[currentInstanceIndex], 'numeric')" :key="key" :value="value">
                       {{ value }}
                     </option>
                   </CFormSelect>
@@ -135,16 +136,31 @@
                 </template>
               </Modal>
             </div>
-            <CCard>
+
+          <div> 
+            <button class="goto-build-phase" @click=" handleBuildingPhase(instanceIndex)">
+              <span v-if="!dataInstances[instanceIndex].isinbuildingModelPhase"> Go To building phase</span>
+              <span v-if="dataInstances[instanceIndex].isinbuildingModelPhase"> Go back to data processing and engineering</span>
+            </button>
+
+          </div>
+
+
+
+
+            <CCard v-if = "instance.isinbuildingModelPhase">
               <CCardHeader>
                 Models
                 <div class="addmodel-button-container">
-                  <button class="btn btn-success mt-3 btn-very-small"  @click="addnewModel(instanceIndex)">
-                    &#43;  
+                  <button class="btn btn-success mt-3 btn-very-small" @click="addnewModel(instanceIndex)">
+                    &#43;
                   </button>
                 </div>
               </CCardHeader>
-              <div class="card-content">
+
+            
+              
+              <div  class="card-content">
                 <ModelInfo v-for="(value, key) in instance.models"
                   :models="value"
                   :key="key"
@@ -154,10 +170,13 @@
                   }"
                   @updateModel="model => {
                     console.log(model);
-                  }">
+                  }"
+                  @submittingModel="handleSubmitModel">
                 </ModelInfo>
               </div>
             </CCard>
+
+
           </div>
         </div>
       </div>
@@ -182,6 +201,11 @@
         </template>
       </Modal>
     </div>
+  </div>
+
+
+
+  
 
   <Modal
     v-if="creatingInstance"
@@ -189,8 +213,6 @@
     @submit="name => createNewInstance({ data: instanceParent, name, dataTypes: currentDataTypes })"
     :existingNames="dataInstances.map(instance => instance.name)"
   />
-</div>
-
 </template>
 
 <script>
@@ -207,7 +229,6 @@ import {
   CCardHeader
 } from '@coreui/vue';
 
-
 import axios from '@/axios.js'; // Path to the axios.js file
 
 export default {
@@ -216,9 +237,9 @@ export default {
     return {
       showonehotmodal: false,
       shownormalizemodal: false,
-
       file: null,
       uploadSuccess: false,
+      latestRelevantEvent: null,
       uploadError: '',
       csvData: [],
       displayedRows: [],
@@ -231,12 +252,9 @@ export default {
       currentDataTypes: {}, // New property to store data types for the new instance
       instanceName: "",
       parsing: false,
-      models: [
-        new LinearRegression(),
-        new LogisticRegression()
-      ],
       showErrorModal: false, // New property for error modal visibility
-      errorMessage: '' // New property for error message
+      errorMessage: '', // New property for error message
+      currentInstanceIndex: null, // Track the current instance index for modals
     };
   },
   components: {
@@ -275,16 +293,18 @@ export default {
         this.parsing = true;
         this.readCSV(file);
         const testResponse = await axios.get('/test', {
-        params: { k: 'yes' },
+          params: { k: 'yes' },
         });
-        console.log(testResponse.data)
+        console.log(testResponse.data);
       } else {
         this.file = null;
         this.uploadError = 'Please choose a valid CSV file.';
       }
+      this.parsing = false;
+      console.l
     },
     readCSV(file) {
-      const reader = new FileReader(); 
+      const reader = new FileReader();
       reader.onload = (e) => {
         const csv = e.target.result;
         this.parseCSV(csv);
@@ -306,56 +326,97 @@ export default {
       this.displayedRows = this.csvData.slice(1, this.rowsPerPage + 1);
       setTimeout(() => {
         this.uploadSuccess = true;
-        this.parsing = false;
+
         if (this.$refs.fileInput) {
           this.$refs.fileInput.value = '';
         }
       }, 1);
     },
-    determineDataTypes(data, headers) {
-    const dataTypes = {};
-    headers.forEach(header => {
-      dataTypes[header] = 'categorical';
-      });
-
-    headers.forEach((header, instanceIndex) => {
+    determineDataTypeForColumn(data, columnIndex) {
       let isNumeric = true;
       let isDate = true;
       const uniqueValues = new Set();
 
       data.forEach(row => {
-      const value = row[instanceIndex].trim();
-      uniqueValues.add(value);
+        const value = row[columnIndex];
+        if (typeof value === 'string') {
+          const trimmedValue = value.trim();
+          uniqueValues.add(trimmedValue);
 
-      // Check if the value is numeric
-      if (isNaN(value) || value === '') {
-        isNumeric = false;
+          if (isNaN(trimmedValue) || trimmedValue === '') {
+            isNumeric = false;
+          }
+
+          if (!this.isValidDate(trimmedValue)) {
+            isDate = false;
+          }
+        } else {
+          uniqueValues.add(value);
+
+          if (isNaN(value) || value === null || value === undefined) {
+            isNumeric = false;
+          }
+
+          if (!this.isValidDate(value)) {
+            isDate = false;
+          }
+        }
+      });
+
+      if (uniqueValues.size === 2) {
+        return 'binary';
+      } else if (isNumeric) {
+        return 'numeric';
+      } else if (isDate) {
+        return 'date';
+      } else {
+        return 'categorical';
       }
-
-      // Check if the value is a valid date
-      if (!this.isValidDate(value)) {
-        isDate = false;
-      }
-    });
-
-    if (uniqueValues.size === 2) {
-      dataTypes[header] = 'binary';
-    } else if (isNumeric) {
-      dataTypes[header] = 'numeric';
-    } else if (isDate) {
-      dataTypes[header] = 'date';
-    }
+    },
+    determineDataTypes(data, headers) {
+  const dataTypes = {};
+  headers.forEach((header, index) => {
+    dataTypes[header] = this.determineDataTypeForColumn(data, index);
+    this.convertColumnData(data, index, dataTypes[header]);
   });
-
   return dataTypes;
 },
 
-  isValidDate(dateString) {
-    // Try to create a date object from the string
-    const date = new Date(dateString);
-    // Check if the date is valid and the parsed date matches the input date
-    return date instanceof Date && !isNaN(date);
-  },
+convertColumnData(data, columnIndex, dataType) {
+  data.forEach(row => {
+    let value = row[columnIndex];
+
+    if (dataType === 'numeric') {
+      row[columnIndex] = parseFloat(value);
+    } else if (dataType === 'date') {
+      row[columnIndex] = new Date(value);
+    } 
+  });
+},
+      
+    updateDataTypesForNewColumns(instanceIndex) {
+      const instance = this.dataInstances[instanceIndex];
+      const newHeaders = instance.data[0];
+
+      // Determine data types for new columns only
+      newHeaders.forEach(header => {
+        if (!Object.prototype.hasOwnProperty.call(instance.dataTypes, header)) {
+          const colIndex = newHeaders.indexOf(header);
+          instance.dataTypes[header] = this.determineDataTypeForColumn(instance.data.slice(1), colIndex);
+          this.convertColumnData(instance.data, colIndex, instance.dataTypes[header]);
+
+        }
+      });
+
+      // Remove columns from dataTypes that no longer exist
+      Object.keys(instance.dataTypes).forEach(header => {
+        if (!newHeaders.includes(header)) {
+          delete instance.dataTypes[header];
+        }
+      });
+
+      console.log(instance.dataTypes);
+    },
     loadMoreRows() {
       this.loading = true;
       setTimeout(() => {
@@ -398,7 +459,11 @@ export default {
           dataTypes: JSON.parse(JSON.stringify(dataTypes)), // Ensure independent copy
           modelInfo: null,
           isCollapsed: false,
-          models: []
+          isinbuildingModelPhase: false,
+          models: [[
+        new LinearRegression(),
+        new LogisticRegression()
+      ]]
         });
         this.creatingInstance = false;
       }, 1000);
@@ -412,14 +477,34 @@ export default {
       this.dataInstances.splice(instanceIndex, 1);
     },
     addnewModel(instanceIndex) {
-      
-      this.dataInstances[instanceIndex].models.push(this.models);
+
+      const models= [
+        new LinearRegression(),
+        new LogisticRegression()
+      ]
+      this.dataInstances[instanceIndex].models.push(models);
+
     },
     toggleCollapse(instanceIndex) {
       if (this.dataInstances[instanceIndex]) {
         this.dataInstances[instanceIndex].isCollapsed = !this.dataInstances[instanceIndex].isCollapsed;
       }
     },
+
+    isNumeric(value) {
+    // Check for null or empty string
+    if (value === null || value === '') {
+        return false;
+    }
+
+    // Check if the value is a number or can be converted to a number
+    if (!isNaN(value)) {
+        return true;
+    }
+
+    // Otherwise, return false
+    return false;
+},
     showErrorModalWithTimeout(message) {
       this.errorMessage = message;
       this.showErrorModal = true;
@@ -428,46 +513,51 @@ export default {
       }, 1000); // Hide the modal after 1 second
     },
     changeMetricType(columnName, type, instanceIndex) {
-  const colIndex = this.dataInstances[instanceIndex].data[0].indexOf(columnName);
-  let isConvertible = true;
+      const colIndex = this.dataInstances[instanceIndex].data[0].indexOf(columnName);
+      let isConvertible = true;
 
-  if (type === 'numeric') {
-    // Check if all values can be converted to numeric
-    isConvertible = this.dataInstances[instanceIndex].data.slice(1).every(row => !isNaN(row[colIndex]) && row[colIndex].trim() !== '');
-  } else if (type === 'binary') {
-    // Check if there are only two unique values
-    const uniqueValues = new Set(this.dataInstances[instanceIndex].data.slice(1).map(row => row[colIndex].trim()));
-    isConvertible = uniqueValues.size === 2;
-  } else if (type === 'date') {
-    // Check if all values can be converted to valid dates
-    isConvertible = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isValidDate(row[colIndex].trim()));
-  }
+      if (type === 'numeric') {
+        // Check if all values can be converted to numeric
+        isConvertible = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isNumeric(row[colIndex]));
+      } else if (type === 'binary') {
+        // Check if there are only two unique values
+        const uniqueValues = new Set(this.dataInstances[instanceIndex].data.slice(1).map(row => row[colIndex]));
+        isConvertible = uniqueValues.size === 2;
+      } else if (type === 'date') {
+        // Check if all values can be converted to valid dates
+        isConvertible = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isValidDate(row[colIndex]));
+      }
 
-  if (!isConvertible) {
-    this.showErrorModalWithTimeout(`Column ${columnName} cannot be converted to ${type}.`);
-    return;
-  }
+      if (!isConvertible) {
+        this.showErrorModalWithTimeout(`Column ${columnName} cannot be converted to ${type}.`);
+        return;
+      }
 
-  this.dataInstances[instanceIndex].dataTypes[columnName] = type;
-  console.log(this.dataInstances[instanceIndex].dataTypes);
-},
+      this.dataInstances[instanceIndex].dataTypes[columnName] = type;
+      console.log(this.dataInstances[instanceIndex].dataTypes);
+    },
 
+    updateRelevantEvent(event) {
+      this.latestRelevantEvent = event;
+      console.log(event);
+    },
 
     getColumnNamesByType(dataInstance, columnType) {
       return Object.keys(dataInstance.dataTypes).filter(key => dataInstance.dataTypes[key] === columnType);
     },
 
-    async featureEngineering(columnName, instanceIndex){
-      console.log("fe")
-      console.log(columnName)
+    async featureEngineering(columnName, instanceIndex) {
+      console.log("fe");
+      console.log(columnName);
       const instance = this.dataInstances[instanceIndex];
-      console.log(instance)
+      console.log(instance);
 
       const dataToSend = {
-          data: instance.data.map(row => ({ columns: row }))
-        };
+        data: instance.data.map(row => ({ columns: row }))
+      };
 
-      console.log(dataToSend)
+
+    console.log("Data to send before encoding:", JSON.stringify(dataToSend, null, 2));
 
       const response = await axios.post('/onehotencoding', dataToSend, {
         params: {
@@ -475,55 +565,50 @@ export default {
         }
       });
 
-      console.log(response)
+      console.log(response);
 
       const updatedData = JSON.parse(response.data.data);
+      console.log(updatedData);
+
+      // Update instance data with the new one-hot encoded data
       instance.data = [Object.keys(updatedData[0]), ...updatedData.map(row => Object.values(row))];
+      instance.displayedRows = instance.data.slice(1, this.rowsPerPage + 1);
 
-      this.showonehotmodal = false
+      // Update data types for new columns and remove obsolete ones
+      this.updateDataTypesForNewColumns(instanceIndex);
 
+      this.showonehotmodal = false;
+    },
+    handleBuildingPhase(InstanceIndex){
+      this.dataInstances[InstanceIndex].isinbuildingModelPhase = !this.dataInstances[InstanceIndex].isinbuildingModelPhase ;
+      this.dataInstances[InstanceIndex].models = [[
+        new LinearRegression(),
+        new LogisticRegression()
+      ]]
+    },
+
+    isValidDate(value) {
+    // Check if the value is a Date object
+    if (Object.prototype.toString.call(value) === "[object Date]") {
+        return !isNaN(value.getTime());
     }
- 
 
+    // Check if the value is a string that can be converted to a valid date
+    if (typeof value === 'string') {
+        const date = new Date(value);
+        return !isNaN(date.getTime());
+    }
+
+    // If the value is not a Date object or a valid date string, return false
+    return false;
+},
+    handleSubmitModel(selectedValues) {
+      console.log('Submitted Model Values:', selectedValues);
+    }
   }
 };
-
-
-
-
-
 </script>
 
 
-
-
-
-<style scoped>
-.active-indicator {
-  width: 10px;
-  height: 10px;
-  background-color: green;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.header-content {
-  color: wheat;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.btn-very-small {
-  font-size: 0.6rem;
-  padding: 0.2rem 0.4rem;
-}
-
-.name-small {
-  font-size: 1rem;
-  margin: 0;
-}
-</style>
 
 <style src="@/assets/styles.css" scoped></style>
