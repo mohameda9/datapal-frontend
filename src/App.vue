@@ -93,6 +93,8 @@
                 <CDropdownMenu>
                   <CDropdownItem href="#" @click="showonehotmodal = true; currentInstanceIndex = instanceIndex;">One hot encoding</CDropdownItem>
                   <CDropdownItem href="#" @click="shownormalizemodal = true; currentInstanceIndex = instanceIndex;">Normalize columns</CDropdownItem>
+                  <CDropdownItem href="#" @click="shownormalizemodal = true; currentInstanceIndex = instanceIndex;">Standardize columns</CDropdownItem>
+
                 </CDropdownMenu>
               </CDropdown>
 
@@ -103,7 +105,7 @@
 
                 <template v-slot:body>
                   <p>Select a categorical column to one hot encode</p>
-                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedValue" @change="updateRelevantEvent">
+                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedValue" >
                     <option disabled value="">Open this select menu</option>
                     <option v-for="(value, key) in getColumnNamesByType(dataInstances[currentInstanceIndex], 'categorical')" :key="key" :value="value">
                       {{ value }}
@@ -113,27 +115,40 @@
                 </template>
 
                 <template v-slot:footer>
-                  <button @click="featureEngineering(selectedValue, currentInstanceIndex)">Submit</button>
+                  <button @click="onehotEncode(selectedValue, currentInstanceIndex)">Submit</button>
                 </template>
               </Modal>
-              <Modal v-if="shownormalizemodal" @close="shownormalizemodal = false">
-                <template v-slot:header>
-                  <h2>Normalize column values</h2>
-                </template>
 
+              <Modal v-if="shownormalizemodal" @close="shownormalizemodal = false">
                 <template v-slot:body>
                   <p>Select a numerical column to normalize</p>
-                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedItem">
+                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" @update:model-value="val => selectedColumn = val" >
                     <option disabled value="">Open this select menu</option>
                     <option v-for="(value, key) in getColumnNamesByType(dataInstances[currentInstanceIndex], 'numeric')" :key="key" :value="value">
                       {{ value }}
                     </option>
                   </CFormSelect>
+                  
+                  <div>
+                    <p>Min value</p>
+                    <input type="number" step="1" v-model.number="newMin" @input="validateMinMax" />
+                  </div>
+                  <div>
+                    <p>Max value</p>
+                    <input type="number" step="1" v-model.number="newMax" @input="validateMinMax" />
+                  </div>
+
+                  <div v-if="validationError" class="error-message">
+                    {{ validationError }}
+                  </div>
                 </template>
 
                 <template v-slot:footer>
-                  <button @click="shownormalizemodal = false">Close</button>
+                  <button :disabled="!!validationError" @click="scaleColumn(selectedColumn ? selectedColumn : getColumnNamesByType(dataInstances[currentInstanceIndex], 'numeric')[0], currentInstanceIndex, 'normalize', newMin, newMax)">
+                    Normalize column
+                  </button>
                 </template>
+
               </Modal>
             </div>
 
@@ -231,6 +246,7 @@ import {
 
 import axios from '@/axios.js'; // Path to the axios.js file
 
+
 export default {
   name: 'FileUpload',
   data() {
@@ -239,7 +255,6 @@ export default {
       shownormalizemodal: false,
       file: null,
       uploadSuccess: false,
-      latestRelevantEvent: null,
       uploadError: '',
       csvData: [],
       displayedRows: [],
@@ -442,6 +457,9 @@ convertColumnData(data, columnIndex, dataType) {
         instance.loading = false;
       }, 1000);
     },
+
+
+
     prepareNewInstance(instance) {
       this.instanceParent = instance.data;
       this.currentDataTypes = instance.dataTypes;
@@ -537,16 +555,59 @@ convertColumnData(data, columnIndex, dataType) {
       console.log(this.dataInstances[instanceIndex].dataTypes);
     },
 
-    updateRelevantEvent(event) {
-      this.latestRelevantEvent = event;
-      console.log(event);
-    },
-
     getColumnNamesByType(dataInstance, columnType) {
       return Object.keys(dataInstance.dataTypes).filter(key => dataInstance.dataTypes[key] === columnType);
     },
 
-    async featureEngineering(columnName, instanceIndex) {
+  
+
+validateMinMax() {
+    if (this.newMax <= this.newMin) {
+      this.validationError = 'Max value must be greater than Min value';
+    } else {
+      this.validationError = '';
+    }
+  },
+  async scaleColumn(columnName, instanceIndex, method, newMin = 0, newMax = 1) {
+    newMin = Number(newMin);
+    newMax = Number(newMax);
+
+    // Validate newMin and newMax
+    if (isNaN(newMin) || isNaN(newMax)) {
+      this.showErrorModalWithTimeout('newMin and newMax must be valid numbers');
+      return;
+    }
+
+    if (newMax <= newMin) {
+      this.showErrorModalWithTimeout('newMax must be greater than newMin');
+      return;
+    }
+
+    console.log("Scaling column:", columnName);
+    console.log("newMin:", newMin, "newMax:", newMax);
+
+    const instance = this.dataInstances[instanceIndex];
+    const dataToSend = {
+      data: instance.data.map(row => ({ columns: row }))
+    };
+
+    const response = await axios.post('/scale', dataToSend, {
+      params: {
+        column_name: columnName,
+        method: method,
+        new_min: newMin,
+        new_max: newMax
+      }
+    });
+
+    this.updateDataFromBackend(instance, response);
+    this.updateDataTypesForNewColumns(instanceIndex);
+    this.shownormalizemodal = false;
+  },
+
+
+
+    async onehotEncode(columnName, instanceIndex) {
       console.log("fe");
       console.log(columnName);
       const instance = this.dataInstances[instanceIndex];
@@ -565,6 +626,15 @@ convertColumnData(data, columnIndex, dataType) {
         }
       });
 
+
+      this.updateDataFromBackend(instance, response)
+      // Update data types for new columns and remove obsolete ones
+      this.updateDataTypesForNewColumns(instanceIndex);
+
+      this.showonehotmodal = false;
+    },
+
+    updateDataFromBackend(instance, response){
       console.log(response);
 
       const updatedData = JSON.parse(response.data.data);
@@ -573,11 +643,7 @@ convertColumnData(data, columnIndex, dataType) {
       // Update instance data with the new one-hot encoded data
       instance.data = [Object.keys(updatedData[0]), ...updatedData.map(row => Object.values(row))];
       instance.displayedRows = instance.data.slice(1, this.rowsPerPage + 1);
-
-      // Update data types for new columns and remove obsolete ones
-      this.updateDataTypesForNewColumns(instanceIndex);
-
-      this.showonehotmodal = false;
+      
     },
     handleBuildingPhase(InstanceIndex){
       this.dataInstances[InstanceIndex].isinbuildingModelPhase = !this.dataInstances[InstanceIndex].isinbuildingModelPhase ;
