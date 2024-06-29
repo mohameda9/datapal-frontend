@@ -1,25 +1,17 @@
 <template>
   <div class="body">
-    <h1 class="page-title">DataPal - No Code ML</h1>
+    <h1 class="page-title">DATAPAL - Auto ML</h1>
 
     <div class="main-container">
       <!-- Drop area for file upload -->
-      <div
-        class="file-drop-area"
-        @dragover.prevent
-        @dragenter.prevent
-        @drop="handleFileDrop"
-        @click="$refs.fileInput.click()"
-      >
+      <div class="file-drop-area" @dragover.prevent @dragenter.prevent @drop="handleFileDrop"
+        @click="$refs.fileInput.click()">
         <p v-if="!parsing">{{ dropMessage }}</p>
         <div v-else class="spinner-border" role="status"></div>
-        <input
-          type="file"
-          class="visually-hidden"
-          ref="fileInput"
-          @change="handleFileChange"
-          accept=".csv"
-        >
+        <input type="file" class="visually-hidden" ref="fileInput" @change="handleFileChange" accept=".csv">
+      </div>
+      <div v-if="uploadError" class="alert alert-danger mt-3 text-center">
+        {{ uploadError }}
       </div>
 
       <!-- Display instances of CSV data -->
@@ -28,7 +20,8 @@
           <div class="header">
             <div class="header-content">
               <button class="btn btn-success btn-very-small" @click="prepareNewInstance(instance)">
-                <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status"
+                  aria-hidden="true"></span>
                 <span v-else>Create New Instance</span>
               </button>
               <h3 class="text-center name-small">Name: {{ instance.name }}</h3>
@@ -36,11 +29,16 @@
                 <span>Delete Instance</span>
               </button>
             </div>
-            <span v-if="instance" :class="{ collapsed: instance.isCollapsed }" @click="toggleCollapse(instanceIndex)">&#9660;</span>
+            <span v-if="instance" :class="{ collapsed: instance.isCollapsed }"
+              @click="toggleCollapse(instanceIndex)">&#9660;</span>
           </div>
 
-          <div v-if="instance && !instance.isCollapsed">
-            <div class="table-container" @scrollend="() => instance.displayedRows.length < instance.totalRows ? loadMoreRowsForInstance(instanceIndex) : {}">
+          <div v-show="instance && !instance.isCollapsed">
+            <div class="table-container" @scroll="e => e.target.focus({ focusVisible: true })" @scrollend="(e) => {
+              if (instance.displayedRows.length < instance.totalRows)
+                loadMoreRowsForInstance(instanceIndex);
+              e.target.focus();
+            }">
               <table class="table table-bordered table-striped">
                 <thead class="fixed-header">
                   <tr>
@@ -53,13 +51,15 @@
                           <CDropdownItem @click="changeMetricType(header, 'numeric', instanceIndex)">
                             <span class="d-flex align-items-center">
                               Numeric
-                              <span v-if="instance.dataTypes[header] === 'numeric'" class="active-indicator ml-2"></span>
+                              <span v-if="instance.dataTypes[header] === 'numeric'"
+                                class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
                           <CDropdownItem @click="changeMetricType(header, 'categorical', instanceIndex)">
                             <span class="d-flex align-items-center">
                               Categorical
-                              <span v-if="instance.dataTypes[header] === 'categorical'" class="active-indicator ml-2"></span>
+                              <span v-if="instance.dataTypes[header] === 'categorical'"
+                                class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
                           <CDropdownItem @click="changeMetricType(header, 'binary', instanceIndex)">
@@ -86,28 +86,36 @@
                 </tbody>
               </table>
             </div>
-
-            <div v-if = "!instance.isinbuildingModelPhase" class="button-center-container">
+            <button @click="creatingNewColumn = true">
+              <span> Create A new Column </span>
+            </button>
+            <div v-if="!instance.isinbuildingModelPhase" class="button-center-container">
               <CDropdown>
                 <CDropdownToggle color="primary">Feature Engineering options</CDropdownToggle>
                 <CDropdownMenu>
-                  <CDropdownItem href="#" @click="showonehotmodal = true; currentInstanceIndex = instanceIndex;">One hot encoding</CDropdownItem>
-                  <CDropdownItem href="#" @click="shownormalizemodal = true; currentInstanceIndex = instanceIndex;">Normalize columns</CDropdownItem>
-                  <CDropdownItem href="#" @click="shownormalizemodal = true; currentInstanceIndex = instanceIndex;">Standardize columns</CDropdownItem>
-
+                  <CDropdownItem href="#" @click="shownormalizemodal = true;">Standardize columns</CDropdownItem>
+                  <CDropdownItem href="#" @click="showonehotmodal = true;">One hot encoding</CDropdownItem>
+                  <CDropdownItem href="#" @click="shownormalizemodal = true;">Normalize columns</CDropdownItem>
                 </CDropdownMenu>
               </CDropdown>
 
-              <Modal v-if="showonehotmodal " @close="showonehotmodal = false">
+              <ColumnCreator v-if="creatingNewColumn" :instanceIndex="instanceIndex"
+                :availableColumns="instance.data[0]" :column-types="instance.dataTypes"
+                @close="creatingNewColumn = false" @submit="(data) => handleNewColumnCreation(data, instanceIndex)" />
+
+
+
+              <Modal v-if="showonehotmodal" @close="showonehotmodal = false">
                 <template v-slot:header>
                   <h2>One hot encoding</h2>
                 </template>
 
                 <template v-slot:body>
                   <p>Select a categorical column to one hot encode</p>
-                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedValue" >
+                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedValue">
                     <option disabled value="">Open this select menu</option>
-                    <option v-for="(value, key) in getColumnNamesByType(dataInstances[currentInstanceIndex], 'categorical')" :key="key" :value="value">
+                    <option v-for="(value, key) in getColumnNamesByType(instance, 'categorical')" :key="key"
+                      :value="value">
                       {{ value }}
                     </option>
                   </CFormSelect>
@@ -115,20 +123,21 @@
                 </template>
 
                 <template v-slot:footer>
-                  <button @click="onehotEncode(selectedValue, currentInstanceIndex)">Submit</button>
+                  <button @click="onehotEncode(selectedValue, instanceIndex)">Submit</button>
                 </template>
               </Modal>
 
               <Modal v-if="shownormalizemodal" @close="shownormalizemodal = false">
                 <template v-slot:body>
                   <p>Select a numerical column to normalize</p>
-                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" @update:model-value="val => selectedColumn = val" >
+                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example"
+                    @update:model-value="val => selectedColumn = val">
                     <option disabled value="">Open this select menu</option>
-                    <option v-for="(value, key) in getColumnNamesByType(dataInstances[currentInstanceIndex], 'numeric')" :key="key" :value="value">
+                    <option v-for="(value, key) in getColumnNamesByType(instance, 'numeric')" :key="key" :value="value">
                       {{ value }}
                     </option>
                   </CFormSelect>
-                  
+
                   <div>
                     <p>Min value</p>
                     <input type="number" step="1" v-model.number="newMin" @input="validateMinMax" />
@@ -144,7 +153,8 @@
                 </template>
 
                 <template v-slot:footer>
-                  <button :disabled="!!validationError" @click="scaleColumn(selectedColumn ? selectedColumn : getColumnNamesByType(dataInstances[currentInstanceIndex], 'numeric')[0], currentInstanceIndex, 'normalize', newMin, newMax)">
+                  <button :disabled="!!validationError"
+                    @click="scaleColumn(selectedColumn ? selectedColumn : getColumnNamesByType(instance, 'numeric')[0], instanceIndex, 'normalize', newMin, newMax)">
                     Normalize column
                   </button>
                 </template>
@@ -152,54 +162,71 @@
               </Modal>
             </div>
 
-          <div> 
-            <button class="goto-build-phase" @click=" handleBuildingPhase(instanceIndex)">
-              <span v-if="!dataInstances[instanceIndex].isinbuildingModelPhase"> Go To building phase</span>
-              <span v-if="dataInstances[instanceIndex].isinbuildingModelPhase"> Go back to data processing and engineering</span>
-            </button>
+            <div>
+              <button class="goto-build-phase" @click=" handleBuildingPhase(instanceIndex)">
+                <span v-if="!dataInstances[instanceIndex].isinbuildingModelPhase"> Go To building phase</span>
+                <span v-if="dataInstances[instanceIndex].isinbuildingModelPhase"> Go back to data processing and
+                  engineering</span>
+              </button>
 
-          </div>
-
-
-
-
-            <CCard v-if = "instance.isinbuildingModelPhase">
-              <CCardHeader>
-                Models
-                <div class="addmodel-button-container">
-                  <button class="btn btn-success mt-3 btn-very-small" @click="addnewModel(instanceIndex)">
-                    &#43;
-                  </button>
-                </div>
-              </CCardHeader>
-
-            
-              
-              <div  class="card-content">
-                <ModelInfo v-for="(value, key) in instance.models"
-                  :models="value"
-                  :key="key"
-                  :variables="instance.data[0]"
-                  @deleteModel="key => {
-                    instance.models.splice(key, 1);
-                  }"
-                  @updateModel="model => {
-                    console.log(model);
-                  }"
-                  @submittingModel="handleSubmitModel">
-                </ModelInfo>
+              <div v-if="instance.isinbuildingModelPhase" @click="switchmodelzoneview">
+                <button class="toggle-stats-ml-view">
+                  <span v-if="currentModelView === 'stats'"> switch to ML Models View</span>
+                  <span v-if="currentModelView === 'ml'"> switch to statistical Analysis View</span>
+                </button>
               </div>
-            </CCard>
+            </div>
 
+            <div v-show="instance.isinbuildingModelPhase && currentModelView === 'ml'">
+              <CCard :class="{ collapsed: true }">
+                <CCardHeader>
+                  Models
+                  <div class="addmodel-button-container">
+                    <button class="btn btn-success mt-3 btn-very-small" @click="addnewMLModel(instanceIndex)">
+                      &#43;
+                    </button>
+                  </div>
+                </CCardHeader>
 
+                <div class="card-content">
+                  <ModelInfo v-for="(value, key) in instance.MLmodels" :models="value" :key="key"
+                    :variables="instance.data[0]" @deleteModel="key => {
+                      instance.MLmodels.splice(key, 1);
+                    }" @updateModel="model => {
+                      console.log(model);
+                    }" @submittingModel="handleSubmitModel">
+                  </ModelInfo>
+                </div>
+              </CCard>
+            </div>
+
+            <div v-show="instance.isinbuildingModelPhase && currentModelView === 'stats'" class="stats-models-view">
+              <CCard>
+                <CCardHeader>
+                  Statistical Analysis
+                  <div class="addmodel-button-container">
+                    <button class="btn btn-success mt-3 btn-very-small" @click="addnewStatsModel(instanceIndex)">
+                      &#43;
+                    </button>
+                  </div>
+                </CCardHeader>
+
+                <div class="card-content">
+                  <ModelInfo v-for="(value, key) in instance.Statsmodels" :models="value" :key="key"
+                    :variables="instance.data[0]" @deleteModel="key => {
+                      instance.Statsmodels.splice(key, 1);
+                    }" @updateModel="model => {
+                      console.log(model);
+                    }" @submittingModel="handleSubmitModel">
+                  </ModelInfo>
+                </div>
+              </CCard>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Error message -->
-      <div v-if="uploadError" class="alert alert-danger mt-3 text-center">
-        {{ uploadError }}
-      </div>
 
       <!-- Error modal -->
       <Modal v-if="showErrorModal" @close="showErrorModal = false">
@@ -216,18 +243,14 @@
         </template>
       </Modal>
     </div>
+
   </div>
 
 
 
-  
-
-  <Modal
-    v-if="creatingInstance"
-    @close="creatingInstance = false"
+  <Modal v-if="creatingInstance" @close="creatingInstance = false"
     @submit="name => createNewInstance({ data: instanceParent, name, dataTypes: currentDataTypes })"
-    :existingNames="dataInstances.map(instance => instance.name)"
-  />
+    :existingNames="dataInstances.map(instance => instance.name)" />
 </template>
 
 <script>
@@ -245,6 +268,7 @@ import {
 } from '@coreui/vue';
 
 import axios from '@/axios.js'; // Path to the axios.js file
+import ColumnCreator from './components/ColumnCreator.vue';
 
 
 export default {
@@ -252,7 +276,10 @@ export default {
   data() {
     return {
       showonehotmodal: false,
+      creatingNewColumn: false,
       shownormalizemodal: false,
+
+
       file: null,
       uploadSuccess: false,
       uploadError: '',
@@ -263,16 +290,17 @@ export default {
       dataInstances: [],
       loading: false,
       creatingInstance: false,
+      currentModelView: "ml", // 
       instanceParent: [],
       currentDataTypes: {}, // New property to store data types for the new instance
       instanceName: "",
       parsing: false,
       showErrorModal: false, // New property for error modal visibility
       errorMessage: '', // New property for error message
-      currentInstanceIndex: null, // Track the current instance index for modals
     };
   },
   components: {
+    ColumnCreator,
     Modal,
     ModelInfo,
     CDropdown,
@@ -307,16 +335,11 @@ export default {
         this.uploadError = '';
         this.parsing = true;
         this.readCSV(file);
-        const testResponse = await axios.get('/test', {
-          params: { k: 'yes' },
-        });
-        console.log(testResponse.data);
       } else {
         this.file = null;
         this.uploadError = 'Please choose a valid CSV file.';
       }
       this.parsing = false;
-      console.l
     },
     readCSV(file) {
       const reader = new FileReader();
@@ -389,48 +412,50 @@ export default {
       }
     },
     determineDataTypes(data, headers) {
-  const dataTypes = {};
-  headers.forEach((header, index) => {
-    dataTypes[header] = this.determineDataTypeForColumn(data, index);
-    this.convertColumnData(data, index, dataTypes[header]);
-  });
-  return dataTypes;
-},
+      const dataTypes = {};
+      headers.forEach((header, index) => {
+        dataTypes[header] = this.determineDataTypeForColumn(data, index);
+        this.convertColumnData(data, index, dataTypes[header]);
+      });
+      return dataTypes;
+    },
 
-convertColumnData(data, columnIndex, dataType) {
-  data.forEach(row => {
-    let value = row[columnIndex];
+    convertColumnData(row_data, columnIndex, dataType) {
 
-    if (dataType === 'numeric') {
-      row[columnIndex] = parseFloat(value);
-    } else if (dataType === 'date') {
-      row[columnIndex] = new Date(value);
-    } 
-  });
-},
-      
+      row_data.forEach(row => {
+        let value = row[columnIndex];
+
+        if (dataType === 'numeric') {
+          row[columnIndex] = parseFloat(value);
+        } else if (dataType === 'date') {
+          row[columnIndex] = new Date(value);
+        }
+      });
+    },
+
+
+
+
     updateDataTypesForNewColumns(instanceIndex) {
-      const instance = this.dataInstances[instanceIndex];
-      const newHeaders = instance.data[0];
-
+      const newHeaders = this.dataInstances[instanceIndex].data[0];
+      newHeaders;
       // Determine data types for new columns only
       newHeaders.forEach(header => {
-        if (!Object.prototype.hasOwnProperty.call(instance.dataTypes, header)) {
+        if (!Object.prototype.hasOwnProperty.call(this.dataInstances[instanceIndex].dataTypes, header)) {
           const colIndex = newHeaders.indexOf(header);
-          instance.dataTypes[header] = this.determineDataTypeForColumn(instance.data.slice(1), colIndex);
-          this.convertColumnData(instance.data, colIndex, instance.dataTypes[header]);
+          this.dataInstances[instanceIndex].dataTypes[header] = this.determineDataTypeForColumn(this.dataInstances[instanceIndex].data.slice(1), colIndex);
+          this.convertColumnData(this.dataInstances[instanceIndex].data.slice(1), colIndex, this.dataInstances[instanceIndex].dataTypes[header]);
 
         }
       });
 
       // Remove columns from dataTypes that no longer exist
-      Object.keys(instance.dataTypes).forEach(header => {
+      Object.keys(this.dataInstances[instanceIndex].dataTypes).forEach(header => {
         if (!newHeaders.includes(header)) {
-          delete instance.dataTypes[header];
+          delete this.dataInstances[instanceIndex].dataTypes[header];
         }
       });
 
-      console.log(instance.dataTypes);
     },
     loadMoreRows() {
       this.loading = true;
@@ -446,17 +471,16 @@ convertColumnData(data, columnIndex, dataType) {
     },
     loadMoreRowsForInstance(instanceIndex) {
       this.dataInstances[instanceIndex].loading = true;
-      setTimeout(() => {
-        const instance = this.dataInstances[instanceIndex];
-        const startIndex = instance.currentPage * this.rowsPerPage + 1;
-        const endIndex = startIndex + this.rowsPerPage;
-        if (startIndex < instance.data.length) {
-          instance.displayedRows.push(...instance.data.slice(startIndex, endIndex));
-          instance.currentPage++;
-        }
-        instance.loading = false;
-      }, 1000);
+      const instance = this.dataInstances[instanceIndex];
+      const startIndex = instance.currentPage * this.rowsPerPage + 1;
+      const endIndex = startIndex + this.rowsPerPage;
+      if (startIndex < instance.data.length) {
+        instance.displayedRows.push(...instance.data.slice(startIndex, endIndex));
+        instance.currentPage++;
+      }
+      instance.loading = false;
     },
+
 
 
 
@@ -478,10 +502,14 @@ convertColumnData(data, columnIndex, dataType) {
           modelInfo: null,
           isCollapsed: false,
           isinbuildingModelPhase: false,
-          models: [[
-        new LinearRegression(),
-        new LogisticRegression()
-      ]]
+          MLmodels: [[
+            new LinearRegression(),
+            new LogisticRegression()
+          ]],
+          Statsmodels: [[
+            new LinearRegression(),
+            new LogisticRegression()
+          ]]
         });
         this.creatingInstance = false;
       }, 1000);
@@ -494,13 +522,23 @@ convertColumnData(data, columnIndex, dataType) {
     deleteInstance(instanceIndex) {
       this.dataInstances.splice(instanceIndex, 1);
     },
-    addnewModel(instanceIndex) {
+    addnewMLModel(instanceIndex) {
 
-      const models= [
+      const models = [
         new LinearRegression(),
         new LogisticRegression()
       ]
-      this.dataInstances[instanceIndex].models.push(models);
+      this.dataInstances[instanceIndex].MLmodels.push(models);
+
+    },
+
+    addnewStatsModel(instanceIndex) { /// neeed to change
+
+      const models = [
+        new LinearRegression(),
+        new LogisticRegression()
+      ]
+      this.dataInstances[instanceIndex].Statsmodels.push(models);
 
     },
     toggleCollapse(instanceIndex) {
@@ -510,19 +548,19 @@ convertColumnData(data, columnIndex, dataType) {
     },
 
     isNumeric(value) {
-    // Check for null or empty string
-    if (value === null || value === '') {
+      // Check for null or empty string
+      if (value === null || value === '') {
         return false;
-    }
+      }
 
-    // Check if the value is a number or can be converted to a number
-    if (!isNaN(value)) {
+      // Check if the value is a number or can be converted to a number
+      if (!isNaN(value)) {
         return true;
-    }
+      }
 
-    // Otherwise, return false
-    return false;
-},
+      // Otherwise, return false
+      return false;
+    },
     showErrorModalWithTimeout(message) {
       this.errorMessage = message;
       this.showErrorModal = true;
@@ -552,73 +590,73 @@ convertColumnData(data, columnIndex, dataType) {
       }
 
       this.dataInstances[instanceIndex].dataTypes[columnName] = type;
-      console.log(this.dataInstances[instanceIndex].dataTypes);
     },
 
     getColumnNamesByType(dataInstance, columnType) {
       return Object.keys(dataInstance.dataTypes).filter(key => dataInstance.dataTypes[key] === columnType);
     },
 
-  
-
-validateMinMax() {
-    if (this.newMax <= this.newMin) {
-      this.validationError = 'Max value must be greater than Min value';
-    } else {
-      this.validationError = '';
-    }
-  },
-  async scaleColumn(columnName, instanceIndex, method, newMin = 0, newMax = 1) {
-    newMin = Number(newMin);
-    newMax = Number(newMax);
-
-    // Validate newMin and newMax
-    if (isNaN(newMin) || isNaN(newMax)) {
-      this.showErrorModalWithTimeout('newMin and newMax must be valid numbers');
-      return;
-    }
-
-    if (newMax <= newMin) {
-      this.showErrorModalWithTimeout('newMax must be greater than newMin');
-      return;
-    }
-
-    console.log("Scaling column:", columnName);
-    console.log("newMin:", newMin, "newMax:", newMax);
-
-    const instance = this.dataInstances[instanceIndex];
-    const dataToSend = {
-      data: instance.data.map(row => ({ columns: row }))
-    };
-
-    const response = await axios.post('/scale', dataToSend, {
-      params: {
-        column_name: columnName,
-        method: method,
-        new_min: newMin,
-        new_max: newMax
+    switchmodelzoneview() {
+      if (this.currentModelView === "ml") {
+        this.currentModelView = "stats"
+      } else {
+        this.currentModelView = "ml"
       }
-    });
+    },
 
-    this.updateDataFromBackend(instance, response);
-    this.updateDataTypesForNewColumns(instanceIndex);
-    this.shownormalizemodal = false;
-  },
+
+
+    validateMinMax() {
+      if (this.newMax <= this.newMin) {
+        this.validationError = 'Max value must be greater than Min value';
+      } else {
+        this.validationError = '';
+      }
+    },
+    async scaleColumn(columnName, instanceIndex, method, newMin = 0, newMax = 1) {
+      newMin = Number(newMin);
+      newMax = Number(newMax);
+
+      // Validate newMin and newMax
+      if (isNaN(newMin) || isNaN(newMax)) {
+        this.showErrorModalWithTimeout('newMin and newMax must be valid numbers');
+        return;
+      }
+
+      if (newMax <= newMin) {
+        this.showErrorModalWithTimeout('newMax must be greater than newMin');
+        return;
+      }
+
+
+      const instance = this.dataInstances[instanceIndex];
+      const dataToSend = {
+        data: instance.data.map(row => ({ columns: row }))
+      };
+
+      const response = await axios.post('/scale', dataToSend, {
+        params: {
+          column_name: columnName,
+          method: method,
+          new_min: newMin,
+          new_max: newMax
+        }
+      });
+
+      this.updateDataFromBackend(instanceIndex, response);
+      this.updateDataTypesForNewColumns(instanceIndex);
+      this.shownormalizemodal = false;
+    },
 
 
 
     async onehotEncode(columnName, instanceIndex) {
-      console.log("fe");
-      console.log(columnName);
       const instance = this.dataInstances[instanceIndex];
-      console.log(instance);
 
       const dataToSend = {
         data: instance.data.map(row => ({ columns: row }))
       };
 
-
-    console.log("Data to send before encoding:", JSON.stringify(dataToSend, null, 2));
 
       const response = await axios.post('/onehotencoding', dataToSend, {
         params: {
@@ -627,50 +665,93 @@ validateMinMax() {
       });
 
 
-      this.updateDataFromBackend(instance, response)
+      this.updateDataFromBackend(instanceIndex, response)
       // Update data types for new columns and remove obsolete ones
       this.updateDataTypesForNewColumns(instanceIndex);
 
       this.showonehotmodal = false;
     },
 
-    updateDataFromBackend(instance, response){
-      console.log(response);
-
+    updateDataFromBackend(instanceIndex, response) {
       const updatedData = JSON.parse(response.data.data);
-      console.log(updatedData);
 
-      // Update instance data with the new one-hot encoded data
-      instance.data = [Object.keys(updatedData[0]), ...updatedData.map(row => Object.values(row))];
-      instance.displayedRows = instance.data.slice(1, this.rowsPerPage + 1);
-      
+      // Example assuming updatedData is an array of objects (each object is a row)
+      let headers_test = updatedData[0]
+      let headers = Object.keys(headers_test); // Check if this gives the correct headers
+
+
+
+
+      // Map the updatedData to rows in the expected format
+      const rows = updatedData.map(row => headers.map(header => row[header]));
+        rows;
+      // Update instance data with the new headers and rows
+      this.dataInstances[instanceIndex].data = [headers, ...rows];
+      this.dataInstances[instanceIndex].displayedRows = this.dataInstances[instanceIndex].data.slice(1, this.rowsPerPage + 1);
     },
-    handleBuildingPhase(InstanceIndex){
-      this.dataInstances[InstanceIndex].isinbuildingModelPhase = !this.dataInstances[InstanceIndex].isinbuildingModelPhase ;
-      this.dataInstances[InstanceIndex].models = [[
+
+    handleBuildingPhase(InstanceIndex) {
+      this.dataInstances[InstanceIndex].isinbuildingModelPhase = !this.dataInstances[InstanceIndex].isinbuildingModelPhase;
+      this.dataInstances[InstanceIndex].MLmodels = [[
+        new LinearRegression(),
+        new LogisticRegression()
+      ]]
+      this.dataInstances[InstanceIndex].Statsmodels = [[
         new LinearRegression(),
         new LogisticRegression()
       ]]
     },
 
     isValidDate(value) {
-    // Check if the value is a Date object
-    if (Object.prototype.toString.call(value) === "[object Date]") {
+      // Check if the value is a Date object
+      if (Object.prototype.toString.call(value) === "[object Date]") {
         return !isNaN(value.getTime());
-    }
-
-    // Check if the value is a string that can be converted to a valid date
-    if (typeof value === 'string') {
+      }
+      // Check if the value is a string that can be converted to a valid date
+      if (typeof value === 'string') {
         const date = new Date(value);
         return !isNaN(date.getTime());
-    }
+      }
+      return false;
+    },
 
-    // If the value is not a Date object or a valid date string, return false
-    return false;
-},
     handleSubmitModel(selectedValues) {
       console.log('Submitted Model Values:', selectedValues);
+    },
+
+    async handleNewColumnCreation(newColumnCreationMetaData, instanceIndex) {
+      const instance = this.dataInstances[instanceIndex];
+
+      const dataToSend = {
+        data: instance.data.map(row => ({ columns: row }))
+      };
+      console.log(dataToSend)
+
+      // Combine data and columnCreationInput into the request body
+      const requestBody = {
+        data: dataToSend,
+        columnCreationInput: newColumnCreationMetaData
+      };
+
+
+      try {
+        // Send the request to the backend
+        const response = await axios.post('/columnCreation', requestBody, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        // Handle the response as needed, for example, update the instance with the new data
+        this.updateDataFromBackend(instanceIndex, response);
+        this.updateDataTypesForNewColumns(instanceIndex); // Ensure you pass the correct instance index
+
+      } catch (error) {
+        console.error('Error:', error);
+        // Handle error appropriately
+      }
     }
+
   }
 };
 </script>

@@ -7,6 +7,6 @@ import '@coreui/coreui/dist/css/coreui.min.css';
 import CoreuiVue from '@coreui/vue';
 
 const app = createApp(App);
-app.use(CoreuiVue);
+app.use(CoreuiVue); 
 // Optionally install the BootstrapVue icon components plugin
 app.mount('#app');

@@ -3,15 +3,15 @@
 /* Set background color for the entire page */
 .body {
     background-color:	#e8eaeb;
-    min-height: 5000px;
+    min-height: 100svh;
     width: 100%;
   }
   
 .main-container{
-  min-height: 5000px;
+  min-height: 100%;
   width: 80%;
   margin: 0 auto; /* Center horizontally */
-
+  padding: 1.2rem;
 }
   
   .page-title {
@@ -332,4 +332,35 @@
     background-color: #fff;
 
     width: 50%
+  }
+
+  .toggle-stats-ml-view{
+    margin-top: 0.5%;
+    margin-bottom: 0.5%;
+    height: 50px;
+    max-height: fit-content;
+    background-color: #fff;
+
+    width: 20%
+  }
+  .views-container {
+    position: relative;
+    width: 100%;
+    height: auto; /* Change height to auto to adjust to content */
+  }
+  
+  .models-view {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    transition: transform 0.5s ease;
+  }
+  
+  .off-screen {
+    transform: translateX(100vw); /* Move the element out of the viewport to the right */
+  }
+  
+  .toggle-stats-ml-view {
+    margin-top: 10px;
   }
