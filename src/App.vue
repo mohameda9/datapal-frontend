@@ -32,7 +32,14 @@
             <span v-if="instance" :class="{ collapsed: instance.isCollapsed }"
               @click="toggleCollapse(instanceIndex)">&#9660;</span>
           </div>
-
+          <div class = "data-manipulation-button-container ">
+            <button class = "btn btn-warning btn-small" @click="creatingNewColumn = true">
+              <span> Create A new Column </span>
+            </button>
+            <button class = "btn btn-warning btn-small" @click="creatingNewColumn = true">
+              <span> Handle Missing Values (not Implemented) </span>
+            </button>
+          </div>
           <div v-show="instance && !instance.isCollapsed">
             <div class="table-container" @scroll="e => e.target.focus({ focusVisible: true })" @scrollend="(e) => {
               if (instance.displayedRows.length < instance.totalRows)
@@ -55,6 +62,13 @@
                                 class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
+                          <CDropdownItem @click="changeMetricType(header, 'string', instanceIndex)">
+                            <span class="d-flex align-items-center">
+                              String
+                              <span v-if="instance.dataTypes[header] === 'string'"
+                                class="active-indicator ml-2"></span>
+                            </span>
+                          </CDropdownItem>
                           <CDropdownItem @click="changeMetricType(header, 'categorical', instanceIndex)">
                             <span class="d-flex align-items-center">
                               Categorical
@@ -62,16 +76,16 @@
                                 class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-                          <CDropdownItem @click="changeMetricType(header, 'binary', instanceIndex)">
+                          <CDropdownItem @click="changeMetricType(header, 'numeric binary', instanceIndex)">
                             <span class="d-flex align-items-center">
-                              Binary
-                              <span v-if="instance.dataTypes[header] === 'binary'" class="active-indicator ml-2"></span>
+                              Binary (Numeric)
+                              <span v-if="instance.dataTypes[header] === 'numeric binary'" class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-                          <CDropdownItem @click="changeMetricType(header, 'date', instanceIndex)">
+                          <CDropdownItem @click="changeMetricType(header, 'categorical binary', instanceIndex)">
                             <span class="d-flex align-items-center">
-                              Date
-                              <span v-if="instance.dataTypes[header] === 'date'" class="active-indicator ml-2"></span>
+                              Binary (Categorical)
+                              <span v-if="instance.dataTypes[header] === 'categorical binary'" class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
                         </CDropdownMenu>
@@ -86,9 +100,7 @@
                 </tbody>
               </table>
             </div>
-            <button @click="creatingNewColumn = true">
-              <span> Create A new Column </span>
-            </button>
+
             <div v-if="!instance.isinbuildingModelPhase" class="button-center-container">
               <CDropdown>
                 <CDropdownToggle color="primary">Feature Engineering options</CDropdownToggle>
@@ -163,7 +175,7 @@
             </div>
 
             <div>
-              <button class="goto-build-phase" @click=" handleBuildingPhase(instanceIndex)">
+              <button class="goto-build-phase" @click=" handleBuildingPhase(instance)">
                 <span v-if="!dataInstances[instanceIndex].isinbuildingModelPhase"> Go To building phase</span>
                 <span v-if="dataInstances[instanceIndex].isinbuildingModelPhase"> Go back to data processing and
                   engineering</span>
@@ -372,7 +384,6 @@ export default {
     },
     determineDataTypeForColumn(data, columnIndex) {
       let isNumeric = true;
-      let isDate = true;
       const uniqueValues = new Set();
 
       data.forEach(row => {
@@ -385,30 +396,38 @@ export default {
             isNumeric = false;
           }
 
-          if (!this.isValidDate(trimmedValue)) {
-            isDate = false;
-          }
+
         } else {
           uniqueValues.add(value);
-
           if (isNaN(value) || value === null || value === undefined) {
             isNumeric = false;
           }
 
-          if (!this.isValidDate(value)) {
-            isDate = false;
-          }
+
         }
       });
 
-      if (uniqueValues.size === 2) {
-        return 'binary';
-      } else if (isNumeric) {
+      const isBinary = uniqueValues.size === 2 
+      
+      console.log(columnIndex)
+      console.log(uniqueValues.size)
+      console.log(data.length)
+      console.log(uniqueValues.size/ data.length)
+
+      const isCategorical = uniqueValues.size/ data.length <0.03
+
+      if (isBinary && isNumeric) {
+        return 'numeric binary';
+      }
+      else if (isBinary  ){
+          return 'categorical binary'
+      }
+      else if (isNumeric) {
         return 'numeric';
-      } else if (isDate) {
-        return 'date';
-      } else {
+      } else if (isCategorical) {
         return 'categorical';
+      } else {
+        return 'string';
       }
     },
     determineDataTypes(data, headers) {
@@ -427,32 +446,30 @@ export default {
 
         if (dataType === 'numeric') {
           row[columnIndex] = parseFloat(value);
-        } else if (dataType === 'date') {
-          row[columnIndex] = new Date(value);
-        }
+        } 
       });
     },
 
 
 
 
-    updateDataTypesForNewColumns(instanceIndex, newColumns =[]) {
-      const newHeaders = this.dataInstances[instanceIndex].data[0];
+    updateDataTypesForNewColumns(instance, newColumns =[]) {
+      const newHeaders = instance.data[0];
       newHeaders;
       // Determine data types for new columns only
       newHeaders.forEach(header => {
-        if (!Object.prototype.hasOwnProperty.call(this.dataInstances[instanceIndex].dataTypes, header) || newColumns.includes(header)) {
+        if (!Object.prototype.hasOwnProperty.call(instance.dataTypes, header) || newColumns.includes(header)) {
           const colIndex = newHeaders.indexOf(header);
-          this.dataInstances[instanceIndex].dataTypes[header] = this.determineDataTypeForColumn(this.dataInstances[instanceIndex].data.slice(1), colIndex);
-          this.convertColumnData(this.dataInstances[instanceIndex].data.slice(1), colIndex, this.dataInstances[instanceIndex].dataTypes[header]);
+          instance.dataTypes[header] = this.determineDataTypeForColumn(instance.data.slice(1), colIndex);
+          this.convertColumnData(instance.data.slice(1), colIndex, instance.dataTypes[header]);
 
         }
       });
 
       // Remove columns from dataTypes that no longer exist
-      Object.keys(this.dataInstances[instanceIndex].dataTypes).forEach(header => {
+      Object.keys(instance.dataTypes).forEach(header => {
         if (!newHeaders.includes(header)) {
-          delete this.dataInstances[instanceIndex].dataTypes[header];
+          delete instance.dataTypes[header];
         }
       });
 
@@ -575,14 +592,20 @@ export default {
       if (type === 'numeric') {
         // Check if all values can be converted to numeric
         isConvertible = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isNumeric(row[colIndex]));
-      } else if (type === 'binary') {
+      } else if (type === 'numeric binary') {
         // Check if there are only two unique values
+        let isNumeric = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isNumeric(row[colIndex]));
         const uniqueValues = new Set(this.dataInstances[instanceIndex].data.slice(1).map(row => row[colIndex]));
-        isConvertible = uniqueValues.size === 2;
-      } else if (type === 'date') {
-        // Check if all values can be converted to valid dates
-        isConvertible = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isValidDate(row[colIndex]));
-      }
+        isConvertible = uniqueValues.size === 2 && isNumeric;
+      } 
+
+      else if (type === 'categorical binary') {
+        // Check if there are only two unique values
+        let isNumeric = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isNumeric(row[colIndex]));
+        const uniqueValues = new Set(this.dataInstances[instanceIndex].data.slice(1).map(row => row[colIndex]));
+        isConvertible = uniqueValues.size === 2 && !isNumeric;
+      } 
+
 
       if (!isConvertible) {
         this.showErrorModalWithTimeout(`Column ${columnName} cannot be converted to ${type}.`);
@@ -606,14 +629,7 @@ export default {
 
 
 
-    validateMinMax() {
-      if (this.newMax <= this.newMin) {
-        this.validationError = 'Max value must be greater than Min value';
-      } else {
-        this.validationError = '';
-      }
-    },
-    async scaleColumn(columnName, instanceIndex, method, newMin = 0, newMax = 1) {
+    async scaleColumn(columnName, instance, method, newMin = 0, newMax = 1) {
       newMin = Number(newMin);
       newMax = Number(newMax);
 
@@ -628,8 +644,6 @@ export default {
         return;
       }
 
-
-      const instance = this.dataInstances[instanceIndex];
       const dataToSend = {
         data: instance.data.map(row => ({ columns: row }))
       };
@@ -643,8 +657,8 @@ export default {
         }
       });
 
-      this.updateDataFromBackend(instanceIndex, response);
-      this.updateDataTypesForNewColumns(instanceIndex);
+      this.updateDataFromBackend(instance, response);
+      this.updateDataTypesForNewColumns(instance);
       this.shownormalizemodal = false;
     },
 
@@ -665,14 +679,14 @@ export default {
       });
 
 
-      this.updateDataFromBackend(instanceIndex, response)
+      this.updateDataFromBackend(instance, response)
       // Update data types for new columns and remove obsolete ones
-      this.updateDataTypesForNewColumns(instanceIndex);
+      this.updateDataTypesForNewColumns(instance);
 
       this.showonehotmodal = false;
     },
 
-    updateDataFromBackend(instanceIndex, response) {
+    updateDataFromBackend(instance, response) {
       const updatedData = JSON.parse(response.data.data);
 
       // Example assuming updatedData is an array of objects (each object is a row)
@@ -686,17 +700,17 @@ export default {
       const rows = updatedData.map(row => headers.map(header => row[header]));
         rows;
       // Update instance data with the new headers and rows
-      this.dataInstances[instanceIndex].data = [headers, ...rows];
-      this.dataInstances[instanceIndex].displayedRows = this.dataInstances[instanceIndex].data.slice(1, this.rowsPerPage + 1);
+      instance.data = [headers, ...rows];
+      instance.displayedRows = instance.data.slice(1, this.rowsPerPage + 1);
     },
 
-    handleBuildingPhase(InstanceIndex) {
-      this.dataInstances[InstanceIndex].isinbuildingModelPhase = !this.dataInstances[InstanceIndex].isinbuildingModelPhase;
-      this.dataInstances[InstanceIndex].MLmodels = [[
+    handleBuildingPhase(instance) {
+      instance.isinbuildingModelPhase = !instance.isinbuildingModelPhase;
+      instance.MLmodels = [[
         new LinearRegression(),
         new LogisticRegression()
       ]]
-      this.dataInstances[InstanceIndex].Statsmodels = [[
+      instance.Statsmodels = [[
         new LinearRegression(),
         new LogisticRegression()
       ]]
@@ -743,8 +757,8 @@ export default {
         });
 
         // Handle the response as needed, for example, update the instance with the new data
-        this.updateDataFromBackend(instanceIndex, response);
-        this.updateDataTypesForNewColumns(instanceIndex, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
+        this.updateDataFromBackend(instance, response);
+        this.updateDataTypesForNewColumns(instance, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
 
       } catch (error) {
         console.error('Error:', error);

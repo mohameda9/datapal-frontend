@@ -364,3 +364,11 @@
   .toggle-stats-ml-view {
     margin-top: 10px;
   }
+
+
+  .data-manipulation-button-container {
+    display: flex;
+    justify-content: center; /* Center the buttons */
+    gap: 20px; /* Adjust the space between the buttons as needed */
+    width: 100%; /* Ensure the container takes up full width */
+  }
