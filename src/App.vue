@@ -436,12 +436,12 @@ export default {
 
 
 
-    updateDataTypesForNewColumns(instanceIndex) {
+    updateDataTypesForNewColumns(instanceIndex, newColumns =[]) {
       const newHeaders = this.dataInstances[instanceIndex].data[0];
       newHeaders;
       // Determine data types for new columns only
       newHeaders.forEach(header => {
-        if (!Object.prototype.hasOwnProperty.call(this.dataInstances[instanceIndex].dataTypes, header)) {
+        if (!Object.prototype.hasOwnProperty.call(this.dataInstances[instanceIndex].dataTypes, header) || newColumns.includes(header)) {
           const colIndex = newHeaders.indexOf(header);
           this.dataInstances[instanceIndex].dataTypes[header] = this.determineDataTypeForColumn(this.dataInstances[instanceIndex].data.slice(1), colIndex);
           this.convertColumnData(this.dataInstances[instanceIndex].data.slice(1), colIndex, this.dataInstances[instanceIndex].dataTypes[header]);
@@ -744,7 +744,7 @@ export default {
 
         // Handle the response as needed, for example, update the instance with the new data
         this.updateDataFromBackend(instanceIndex, response);
-        this.updateDataTypesForNewColumns(instanceIndex); // Ensure you pass the correct instance index
+        this.updateDataTypesForNewColumns(instanceIndex, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
 
       } catch (error) {
         console.error('Error:', error);

@@ -86,19 +86,20 @@ export default {
     return {
       columnName: "",
       columnNameExistsWarn: null,
-      conditionGroups: [
-        {
-          conditions: [{
-            column: "",
-            operator: "",
-            value: "",
-            availableOperators: []
-          }],
-          result: "",
-          resultType: "value",
-          errorMessage: ""
-        }
-      ],
+      conditionGroups: [],
+    //   conditionGroups: [
+    //     {
+    //       conditions: [{
+    //         column: "",
+    //         operator: "",
+    //         value: "",
+    //         availableOperators: []
+    //       }],
+    //       result: "",
+    //       resultType: "value",
+    //       errorMessage: ""
+    //     }
+    //   ],
       defaultValue: "",
       defaultValueType: "value",
       elseErrorMessage: "",
@@ -158,9 +159,9 @@ export default {
       if (!this.columnName) {
         this.errorMessage = "Column name cannot be blank";
         return;
-      } else if (this.availableColumns.includes(this.columnName)) {
-        this.errorMessage = "Column name already exists, should be unique";
-        return;
+    //   } else if (this.availableColumns.includes(this.columnName)) {
+    //     this.errorMessage = "Column name already exists, should be unique";
+    //     return;
       } else if (this.conditionGroups.some(group => group.conditions.some(cond => !cond.column || !cond.value) || !group.result)) {
         this.errorMessage = "All condition fields and results must be filled";
         return;
