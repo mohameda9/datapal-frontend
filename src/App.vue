@@ -36,10 +36,16 @@
             <button class = "btn btn-warning btn-small" @click="creatingNewColumn = true">
               <span> Create A new Column </span>
             </button>
-            <button class = "btn btn-warning btn-small" @click="creatingNewColumn = true">
+            <button class = "btn btn-warning btn-small" @click = "handlingMissingValues = true">
               <span> Handle Missing Values (not Implemented) </span>
             </button>
           </div>
+          <ColumnCreator v-if="creatingNewColumn" :instanceIndex="instanceIndex"
+                :availableColumns="instance.data[0]" :column-types="instance.dataTypes"
+                @close="creatingNewColumn = false" @submit="(data) => handleNewColumnCreation(data, instanceIndex)" />
+          
+          <missingValueHandler v-if ="handlingMissingValues" @close = "handlingMissingValues = false" :availableColumns = "columnsWithMissingValues(instance)" :columntypes="instance.dataTypes" />   
+
           <div v-show="instance && !instance.isCollapsed">
             <div class="table-container" @scroll="e => e.target.focus({ focusVisible: true })" @scrollend="(e) => {
               if (instance.displayedRows.length < instance.totalRows)
@@ -55,34 +61,34 @@
                           {{ header }}
                         </CDropdownToggle>
                         <CDropdownMenu>
-                          <CDropdownItem @click="changeMetricType(header, 'numeric', instanceIndex)">
+                          <CDropdownItem @click="changeMetricType(header, 'numeric', instance)">
                             <span class="d-flex align-items-center">
                               Numeric
                               <span v-if="instance.dataTypes[header] === 'numeric'"
                                 class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-                          <CDropdownItem @click="changeMetricType(header, 'string', instanceIndex)">
+                          <CDropdownItem @click="changeMetricType(header, 'string', instance)">
                             <span class="d-flex align-items-center">
                               String
                               <span v-if="instance.dataTypes[header] === 'string'"
                                 class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-                          <CDropdownItem @click="changeMetricType(header, 'categorical', instanceIndex)">
+                          <CDropdownItem @click="changeMetricType(header, 'categorical', instance)">
                             <span class="d-flex align-items-center">
                               Categorical
                               <span v-if="instance.dataTypes[header] === 'categorical'"
                                 class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-                          <CDropdownItem @click="changeMetricType(header, 'numeric binary', instanceIndex)">
+                          <CDropdownItem @click="changeMetricType(header, 'numeric binary', instance)">
                             <span class="d-flex align-items-center">
                               Binary (Numeric)
                               <span v-if="instance.dataTypes[header] === 'numeric binary'" class="active-indicator ml-2"></span>
                             </span>
                           </CDropdownItem>
-                          <CDropdownItem @click="changeMetricType(header, 'categorical binary', instanceIndex)">
+                          <CDropdownItem @click="changeMetricType(header, 'categorical binary', instance)">
                             <span class="d-flex align-items-center">
                               Binary (Categorical)
                               <span v-if="instance.dataTypes[header] === 'categorical binary'" class="active-indicator ml-2"></span>
@@ -111,11 +117,6 @@
                 </CDropdownMenu>
               </CDropdown>
 
-              <ColumnCreator v-if="creatingNewColumn" :instanceIndex="instanceIndex"
-                :availableColumns="instance.data[0]" :column-types="instance.dataTypes"
-                @close="creatingNewColumn = false" @submit="(data) => handleNewColumnCreation(data, instanceIndex)" />
-
-
 
               <Modal v-if="showonehotmodal" @close="showonehotmodal = false">
                 <template v-slot:header>
@@ -124,18 +125,17 @@
 
                 <template v-slot:body>
                   <p>Select a categorical column to one hot encode</p>
-                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" v-model="selectedValue">
+                  <select size="lg" class="mb-3" aria-label="Large select example" v-model="selectedValue">
                     <option disabled value="">Open this select menu</option>
-                    <option v-for="(value, key) in getColumnNamesByType(instance, 'categorical')" :key="key"
-                      :value="value">
+                    <option v-for="(value, key) in getColumnNamesByType(instance, ['categorical'])" :key="key" :value="value">
                       {{ value }}
                     </option>
-                  </CFormSelect>
+                </select>
 
                 </template>
 
                 <template v-slot:footer>
-                  <button @click="onehotEncode(selectedValue, instanceIndex)">Submit</button>
+                  <button @click="onehotEncode(selectedValue, instance)">Submit</button>
                 </template>
               </Modal>
 
@@ -145,7 +145,7 @@
                   <CFormSelect size="lg" class="mb-3" aria-label="Large select example"
                     @update:model-value="val => selectedColumn = val">
                     <option disabled value="">Open this select menu</option>
-                    <option v-for="(value, key) in getColumnNamesByType(instance, 'numeric')" :key="key" :value="value">
+                    <option v-for="(value, key) in getColumnNamesByType(instance, ['numeric'])" :key="key" :value="value">
                       {{ value }}
                     </option>
                   </CFormSelect>
@@ -166,7 +166,7 @@
 
                 <template v-slot:footer>
                   <button :disabled="!!validationError"
-                    @click="scaleColumn(selectedColumn ? selectedColumn : getColumnNamesByType(instance, 'numeric')[0], instanceIndex, 'normalize', newMin, newMax)">
+                    @click="scaleColumn(selectedColumn ? selectedColumn : getColumnNamesByType(instance, ['numeric'])[0], instance, 'normalize', newMin, newMax)">
                     Normalize column
                   </button>
                 </template>
@@ -256,7 +256,10 @@
       </Modal>
     </div>
 
+
   </div>
+
+
 
 
 
@@ -281,7 +284,8 @@ import {
 
 import axios from '@/axios.js'; // Path to the axios.js file
 import ColumnCreator from './components/ColumnCreator.vue';
-
+import missingValueHandler from './components/missingValueHandler.vue';
+import {getColumnNamesByType} from './utils/commonFunctions.js';
 
 export default {
   name: 'FileUpload',
@@ -290,8 +294,7 @@ export default {
       showonehotmodal: false,
       creatingNewColumn: false,
       shownormalizemodal: false,
-
-
+      handlingMissingValues: false,
       file: null,
       uploadSuccess: false,
       uploadError: '',
@@ -311,8 +314,12 @@ export default {
       errorMessage: '', // New property for error message
     };
   },
+  created(){
+    this.getColumnNamesByType = getColumnNamesByType
+  },
   components: {
     ColumnCreator,
+    missingValueHandler,
     Modal,
     ModelInfo,
     CDropdown,
@@ -329,9 +336,13 @@ export default {
     },
     totalRows() {
       return this.csvData.length > 0 ? this.csvData.length - 1 : 0;
-    }
+    }, 
+    
+
+    
   },
   methods: {
+
     handleFileChange(event) {
       const selectedFile = event.target.files[0];
       this.handleFile(selectedFile);
@@ -388,6 +399,9 @@ export default {
 
       data.forEach(row => {
         const value = row[columnIndex];
+        if (value === null || value === undefined || value === '' ) {
+          return; // Skip NaNs, nulls, undefined, and empty strings
+          }
         if (typeof value === 'string') {
           const trimmedValue = value.trim();
           uniqueValues.add(trimmedValue);
@@ -409,10 +423,6 @@ export default {
 
       const isBinary = uniqueValues.size === 2 
       
-      console.log(columnIndex)
-      console.log(uniqueValues.size)
-      console.log(data.length)
-      console.log(uniqueValues.size/ data.length)
 
       const isCategorical = uniqueValues.size/ data.length <0.03
 
@@ -444,7 +454,7 @@ export default {
       row_data.forEach(row => {
         let value = row[columnIndex];
 
-        if (dataType === 'numeric') {
+        if (dataType === 'numeric' || dataType === 'numeric binary') {
           row[columnIndex] = parseFloat(value);
         } 
       });
@@ -462,7 +472,6 @@ export default {
           const colIndex = newHeaders.indexOf(header);
           instance.dataTypes[header] = this.determineDataTypeForColumn(instance.data.slice(1), colIndex);
           this.convertColumnData(instance.data.slice(1), colIndex, instance.dataTypes[header]);
-
         }
       });
 
@@ -497,6 +506,21 @@ export default {
       }
       instance.loading = false;
     },
+    columnsWithMissingValues(instance) {
+    const columnsWithMissing = [];
+    const headers = instance.data[0];
+    console.log(headers)
+
+    headers.forEach((header, index) => {
+      const hasMissing = instance.data.slice(1).some(row => row[index] === ''  || row[index] === null || row[index] === undefined);
+      if (hasMissing) {
+        columnsWithMissing.push(header);
+      }
+    });
+    console.log(columnsWithMissing)
+
+    return columnsWithMissing;
+  },
 
 
 
@@ -585,24 +609,24 @@ export default {
         this.showErrorModal = false;
       }, 1000); // Hide the modal after 1 second
     },
-    changeMetricType(columnName, type, instanceIndex) {
-      const colIndex = this.dataInstances[instanceIndex].data[0].indexOf(columnName);
+    changeMetricType(columnName, type, instance) {
+      const colIndex = instance.data[0].indexOf(columnName);
       let isConvertible = true;
 
       if (type === 'numeric') {
         // Check if all values can be converted to numeric
-        isConvertible = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isNumeric(row[colIndex]));
+        isConvertible = instance.data.slice(1).every(row => this.isNumeric(row[colIndex]));
       } else if (type === 'numeric binary') {
         // Check if there are only two unique values
-        let isNumeric = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isNumeric(row[colIndex]));
-        const uniqueValues = new Set(this.dataInstances[instanceIndex].data.slice(1).map(row => row[colIndex]));
+        let isNumeric = instance.data.slice(1).every(row => this.isNumeric(row[colIndex]));
+        const uniqueValues = new Set(instance.data.slice(1).map(row => row[colIndex]));
         isConvertible = uniqueValues.size === 2 && isNumeric;
       } 
 
       else if (type === 'categorical binary') {
         // Check if there are only two unique values
-        let isNumeric = this.dataInstances[instanceIndex].data.slice(1).every(row => this.isNumeric(row[colIndex]));
-        const uniqueValues = new Set(this.dataInstances[instanceIndex].data.slice(1).map(row => row[colIndex]));
+        let isNumeric = instance.data.slice(1).every(row => this.isNumeric(row[colIndex]));
+        const uniqueValues = new Set(instance.data.slice(1).map(row => row[colIndex]));
         isConvertible = uniqueValues.size === 2 && !isNumeric;
       } 
 
@@ -612,12 +636,12 @@ export default {
         return;
       }
 
-      this.dataInstances[instanceIndex].dataTypes[columnName] = type;
+      instance.dataTypes[columnName] = type;
+      this.convertColumnData(instance.data.slice(1), colIndex, type);
+
+
     },
 
-    getColumnNamesByType(dataInstance, columnType) {
-      return Object.keys(dataInstance.dataTypes).filter(key => dataInstance.dataTypes[key] === columnType);
-    },
 
     switchmodelzoneview() {
       if (this.currentModelView === "ml") {
@@ -664,12 +688,13 @@ export default {
 
 
 
-    async onehotEncode(columnName, instanceIndex) {
-      const instance = this.dataInstances[instanceIndex];
-
+    async onehotEncode(columnName, instance) {
+      console.log(columnName)
+      
       const dataToSend = {
         data: instance.data.map(row => ({ columns: row }))
       };
+      console.log(dataToSend)
 
 
       const response = await axios.post('/onehotencoding', dataToSend, {
