@@ -5,11 +5,14 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import '@coreui/coreui/dist/css/coreui.min.css';
 import CoreuiVue from '@coreui/vue';
-// import 'ant-design-vue/dist/antd.css';
-// import Antd from 'ant-design-vue';
+import PrimeVue from 'primevue/config';
+import 'primevue/resources/themes/saga-blue/theme.css'; // Choose a theme
+import 'primevue/resources/primevue.min.css';
+import 'primeicons/primeicons.css';
 
 
 const app = createApp(App);
+app.use(PrimeVue)
 app.use(CoreuiVue); 
 // app.use(Antd);
 

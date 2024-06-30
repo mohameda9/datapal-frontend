@@ -1,59 +1,744 @@
 <template>
-  <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br>
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel" target="_blank" rel="noopener">babel</a></li>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint" target="_blank" rel="noopener">eslint</a></li>
-    </ul>
+  <div class="body">
+    <h1 class="page-title">DATAPAL - Auto ML</h1>
 
-    <h3>Essential Links</h3>
-    <ul>
-      <li><a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a></li>
-      <li><a href="https://forum.vuejs.org" target="_blank" rel="noopener">Forum</a></li>
-      <li><a href="https://chat.vuejs.org" target="_blank" rel="noopener">Community Chat</a></li>
-      <li><a href="https://twitter.com/vuejs" target="_blank" rel="noopener">Twitter</a></li>
-      <li><a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a></li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li><a href="https://router.vuejs.org" target="_blank" rel="noopener">vue-router</a></li>
-      <li><a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a></li>
-      <li><a href="https://github.com/vuejs/vue-devtools#vue-devtools" target="_blank" rel="noopener">vue-devtools</a></li>
-      <li><a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener">vue-loader</a></li>
-      <li><a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">awesome-vue</a></li>
-    </ul>
+    <div class="main-container">
+      <!-- Drop area for file upload -->
+      <div class="file-drop-area" @dragover.prevent @dragenter.prevent @drop="handleFileDrop" @click="$refs.fileInput.click()">
+        <p v-if="!parsing">{{ dropMessage }}</p>
+        <div v-else class="spinner-border" role="status"></div>
+        <input type="file" class="visually-hidden" ref="fileInput" @change="handleFileChange" accept=".csv">
+      </div>
+      <div v-if="uploadError" class="alert alert-danger mt-3 text-center">
+        {{ uploadError }}
+      </div>
+
+      <!-- Display instances of CSV data -->
+      <div v-if="dataInstances.length > 0" class="mt-5">
+        <div v-for="(instance, instanceIndex) in dataInstances" :key="instanceIndex" class="instance-container">
+          <div class="header">
+            <div class="header-content">
+              <Button label="Create New Instance" icon="pi pi-plus" class="p-button-success p-button-rounded p-button-sm" @click="prepareNewInstance(instance)" :loading="creatingInstance" loadingIcon="pi pi-spinner" />
+              <h3 class="text-center name-small">Name: {{ instance.name }}</h3>
+              <Button label="Delete Instance" icon="pi pi-times" class="p-button-danger p-button-rounded p-button-sm" @click="confirmDelete(instanceIndex)" />
+            </div>
+            <span v-if="instance" :class="{ collapsed: instance.isCollapsed }" @click="toggleCollapse(instanceIndex)">&#9660;</span>
+          </div>
+          <div class="data-manipulation-button-container">
+            <Button label="Create A new Column" icon="pi pi-plus" class="p-button-warning p-button-rounded p-button-sm" @click="creatingNewColumn = true" />
+            <Button label="Handle Missing Values (not Implemented)" icon="pi pi-exclamation-circle" class="p-button-warning p-button-rounded p-button-sm" @click="handlingMissingValues = true" />
+          </div>
+          <ColumnCreator v-if="creatingNewColumn" :instanceIndex="instanceIndex" :availableColumns="instance.data[0]" :column-types="instance.dataTypes" @close="creatingNewColumn = false" @submit="(data) => handleNewColumnCreation(data, instanceIndex)" />
+          <missingValueHandler v-if="handlingMissingValues" @close="handlingMissingValues = false" :availableColumns="columnsWithMissingValues(instance)" :columntypes="instance.dataTypes" />
+          <div v-show="instance && !instance.isCollapsed">
+            <div class="table-container" @scroll="e => e.target.focus({ focusVisible: true })" @scrollend="(e) => {
+              if (instance.displayedRows.length < instance.totalRows)
+                loadMoreRowsForInstance(instanceIndex);
+              e.target.focus();
+            }">
+
+<div class="table-container">
+          <DataTable :value="transformDataForDataTable(instance)" class="p-datatable-gridlines">
+            <Column v-for="(header, colIndex) in instance.data[0]" :key="colIndex" :field="header" :header="header">
+              <template #header>
+                <CDropdown>
+                  <CDropdownToggle class="table-headers">
+                    {{ '    ' }}
+                  </CDropdownToggle>
+                  <CDropdownMenu>
+                    <CDropdownItem @click="changeMetricType(header, 'numeric', instance)">
+                      <span class="d-flex align-items-center">
+                        Numeric
+                        <span v-if="instance.dataTypes[header] === 'numeric'" class="active-indicator ml-2"></span>
+                      </span>
+                    </CDropdownItem>
+                    <CDropdownItem @click="changeMetricType(header, 'string', instance)">
+                      <span class="d-flex align-items-center">
+                        String
+                        <span v-if="instance.dataTypes[header] === 'string'" class="active-indicator ml-2"></span>
+                      </span>
+                    </CDropdownItem>
+                    <CDropdownItem @click="changeMetricType(header, 'categorical', instance)">
+                      <span class="d-flex align-items-center">
+                        Categorical
+                        <span v-if="instance.dataTypes[header] === 'categorical'" class="active-indicator ml-2"></span>
+                      </span>
+                    </CDropdownItem>
+                    <CDropdownItem @click="changeMetricType(header, 'numeric binary', instance)">
+                      <span class="d-flex align-items-center">
+                        Binary (Numeric)
+                        <span v-if="instance.dataTypes[header] === 'numeric binary'" class="active-indicator ml-2"></span>
+                      </span>
+                    </CDropdownItem>
+                    <CDropdownItem @click="changeMetricType(header, 'categorical binary', instance)">
+                      <span class="d-flex align-items-center">
+                        Binary (Categorical)
+                        <span v-if="instance.dataTypes[header] === 'categorical binary'" class="active-indicator ml-2"></span>
+                      </span>
+                    </CDropdownItem>
+                  </CDropdownMenu>
+                </CDropdown>
+              </template>
+            </Column>
+          </DataTable>
+        </div>
+
+
+
+            </div>
+            <div v-if="!instance.isinbuildingModelPhase" class="button-center-container">
+              <CDropdown>
+                <CDropdownToggle color="primary">Feature Engineering options</CDropdownToggle>
+                <CDropdownMenu>
+                  <CDropdownItem href="#" @click="shownormalizemodal = true;">Standardize columns</CDropdownItem>
+                  <CDropdownItem href="#" @click="showonehotmodal = true;">One hot encoding</CDropdownItem>
+                  <CDropdownItem href="#" @click="shownormalizemodal = true;">Normalize columns</CDropdownItem>
+                </CDropdownMenu>
+              </CDropdown>
+              <Modal v-if="showonehotmodal" @close="showonehotmodal = false">
+                <template v-slot:header>
+                  <h2>One hot encoding</h2>
+                </template>
+                <template v-slot:body>
+                  <p>Select a categorical column to one hot encode</p>
+                  <select size="lg" class="mb-3" aria-label="Large select example" v-model="selectedValue">
+                    <option disabled value="">Open this select menu</option>
+                    <option v-for="(value, key) in getColumnNamesByType(instance, ['categorical'])" :key="key" :value="value">
+                      {{ value }}
+                    </option>
+                  </select>
+                </template>
+                <template v-slot:footer>
+                  <Button label="Submit" icon="pi pi-check" class="p-button-rounded p-button-sm" @click="onehotEncode(selectedValue, instance)" />
+                </template>
+              </Modal>
+              <Modal v-if="shownormalizemodal" @close="shownormalizemodal = false">
+                <template v-slot:body>
+                  <p>Select a numerical column to normalize</p>
+                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example" @update:model-value="val => selectedColumn = val">
+                    <option disabled value="">Open this select menu</option>
+                    <option v-for="(value, key) in getColumnNamesByType(instance, ['numeric'])" :key="key" :value="value">
+                      {{ value }}
+                    </option>
+                  </CFormSelect>
+                  <div>
+                    <p>Min value</p>
+                    <input type="number" step="1" v-model.number="newMin" @input="validateMinMax" />
+                  </div>
+                  <div>
+                    <p>Max value</p>
+                    <input type="number" step="1" v-model.number="newMax" @input="validateMinMax" />
+                  </div>
+                  <div v-if="validationError" class="error-message">
+                    {{ validationError }}
+                  </div>
+                </template>
+                <template v-slot:footer>
+                  <Button label="Normalize column" icon="pi pi-check" class="p-button-rounded p-button-sm" :disabled="!!validationError" @click="scaleColumn(selectedColumn ? selectedColumn : getColumnNamesByType(instance, ['numeric'])[0], instance, 'normalize', newMin, newMax)" />
+                </template>
+              </Modal>
+            </div>
+            <div>
+              <Button label="Go To building phase" icon="pi pi-cog" class="p-button-info p-button-rounded p-button-sm" @click="handleBuildingPhase(instance)" v-if="!dataInstances[instanceIndex].isinbuildingModelPhase" />
+              <Button label="Go back to data processing and engineering" icon="pi pi-arrow-left" class="p-button-info p-button-rounded p-button-sm" @click="handleBuildingPhase(instance)" v-if="dataInstances[instanceIndex].isinbuildingModelPhase" />
+              <div v-if="instance.isinbuildingModelPhase" @click="switchmodelzoneview">
+                <Button label="switch to ML Models View" icon="pi pi-eye" class="p-button-rounded p-button-sm" v-if="currentModelView === 'stats'" />
+                <Button label="switch to statistical Analysis View" icon="pi pi-eye" class="p-button-rounded p-button-sm" v-if="currentModelView === 'ml'" />
+              </div>
+            </div>
+            <div v-show="instance.isinbuildingModelPhase && currentModelView === 'ml'">
+              <CCard :class="{ collapsed: true }">
+                <CCardHeader>
+                  Models
+                  <div class="addmodel-button-container">
+                    <Button icon="pi pi-plus" class="p-button-success p-button-rounded p-button-sm mt-3" @click="addnewMLModel(instanceIndex)" />
+                  </div>
+                </CCardHeader>
+                <div class="card-content">
+                  <ModelInfo v-for="(value, key) in instance.MLmodels" :models="value" :key="key" :variables="instance.data[0]" @deleteModel="key => { instance.MLmodels.splice(key, 1); }" @updateModel="model => { console.log(model); }" @submittingModel="handleSubmitModel" />
+                </div>
+              </CCard>
+            </div>
+            <div v-show="instance.isinbuildingModelPhase && currentModelView === 'stats'" class="stats-models-view">
+              <CCard>
+                <CCardHeader>
+                  Statistical Analysis
+                  <div class="addmodel-button-container">
+                    <Button icon="pi pi-plus" class="p-button-success p-button-rounded p-button-sm mt-3" @click="addnewStatsModel(instanceIndex)" />
+                  </div>
+                </CCardHeader>
+                <div class="card-content">
+                  <ModelInfo v-for="(value, key) in instance.Statsmodels" :models="value" :key="key" :variables="instance.data[0]" @deleteModel="key => { instance.Statsmodels.splice(key, 1); }" @updateModel="model => { console.log(model); }" @submittingModel="handleSubmitModel" />
+                </div>
+              </CCard>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <Modal v-if="showErrorModal" @close="showErrorModal = false">
+        <template v-slot:header>
+          <h2>Error</h2>
+        </template>
+        <template v-slot:body>
+          <p>{{ errorMessage }}</p>
+        </template>
+        <template v-slot:footer>
+          <Button label="Close" icon="pi pi-times" class="p-button-danger p-button-rounded p-button-sm" @click="showErrorModal = false" />
+        </template>
+      </Modal>
+    </div>
   </div>
+  <Modal v-if="creatingInstance" @close="creatingInstance = false" @submit="name => createNewInstance({ data: instanceParent, name, dataTypes: currentDataTypes })" :existingNames="dataInstances.map(instance => instance.name)" />
 </template>
 
 <script>
+import Modal from './components/Modal.vue';
+import ModelInfo from './components/ModelInfo.vue';
+import { LinearRegression, LogisticRegression } from './classes/Model';
+import {
+  CDropdown,
+  CDropdownToggle,
+  CDropdownMenu,
+  CDropdownItem,
+  CFormSelect,
+  CCard,
+  CCardHeader
+} from '@coreui/vue';
+import Button from 'primevue/button';
+import axios from '@/axios.js'; // Path to the axios.js file
+import ColumnCreator from './components/ColumnCreator.vue';
+import missingValueHandler from './components/missingValueHandler.vue';
+import { getColumnNamesByType } from './utils/commonFunctions.js';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+
 export default {
-  name: 'HelloWorld',
-  props: {
-    msg: String
+  name: 'FileUpload',
+  data() {
+    return {
+      showonehotmodal: false,
+      creatingNewColumn: false,
+      shownormalizemodal: false,
+      handlingMissingValues: false,
+      file: null,
+      uploadSuccess: false,
+      uploadError: '',
+      csvData: [],
+      displayedRows: [],
+      rowsPerPage: 5,
+      currentPage: 1,
+      dataInstances: [],
+      loading: false,
+      creatingInstance: false,
+      currentModelView: "ml",
+      instanceParent: [],
+      currentDataTypes: {},
+      instanceName: "",
+      parsing: false,
+      showErrorModal: false,
+      errorMessage: '',
+    };
+  },
+  created() {
+    this.getColumnNamesByType = getColumnNamesByType;
+  },
+  components: {
+    ColumnCreator,
+    DataTable,
+    Column,
+    missingValueHandler,
+    Modal,
+    ModelInfo,
+    CDropdown,
+    CDropdownToggle,
+    CDropdownMenu,
+    CDropdownItem,
+    CFormSelect,
+    CCard,
+    Button,
+    CCardHeader
+  },
+  computed: {
+    dropMessage() {
+      return 'Drag & Drop a CSV file here';
+    },
+    totalRows() {
+      return this.csvData.length > 0 ? this.csvData.length - 1 : 0;
+    }, 
+    
+
+    
+  },
+  methods: {
+
+    handleFileChange(event) {
+      const selectedFile = event.target.files[0];
+      this.handleFile(selectedFile);
+    },
+    handleFileDrop(event) {
+      event.preventDefault();
+      const droppedFile = event.dataTransfer.files[0];
+      this.handleFile(droppedFile);
+    },
+    async handleFile(file) {
+      if (file && file.type === 'text/csv') {
+        this.file = file;
+        this.uploadError = '';
+        this.parsing = true;
+        this.readCSV(file);
+      } else {
+        this.file = null;
+        this.uploadError = 'Please choose a valid CSV file.';
+      }
+      this.parsing = false;
+    },
+    readCSV(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const csv = e.target.result;
+        this.parseCSV(csv);
+      };
+      reader.readAsText(file);
+    },
+    parseCSV(csv) {
+      const rows = csv.trim().split(/\r?\n/);
+      const headers = rows[0].split(',');
+      const data = rows.slice(1).map(row => row.split(','));
+
+      const dataTypes = this.determineDataTypes(data, headers);
+      this.csvDataTypes = dataTypes; // Store data types
+
+      this.csvData = [headers, ...data];
+      this.dataInstances = [];
+      this.instanceParent = [];
+      this.createNewInstance({ data: this.csvData, name: "original", dataTypes });
+      this.displayedRows = this.csvData.slice(1, this.rowsPerPage + 1);
+      setTimeout(() => {
+        this.uploadSuccess = true;
+
+        if (this.$refs.fileInput) {
+          this.$refs.fileInput.value = '';
+        }
+      }, 1);
+    },
+    determineDataTypeForColumn(data, columnIndex) {
+      let isNumeric = true;
+      const uniqueValues = new Set();
+
+      data.forEach(row => {
+        const value = row[columnIndex];
+        if (value === null || value === undefined || value === '' ) {
+          return; // Skip NaNs, nulls, undefined, and empty strings
+          }
+        if (typeof value === 'string') {
+          const trimmedValue = value.trim();
+          uniqueValues.add(trimmedValue);
+
+          if (isNaN(trimmedValue) || trimmedValue === '') {
+            isNumeric = false;
+          }
+
+
+        } else {
+          uniqueValues.add(value);
+          if (isNaN(value) || value === null || value === undefined) {
+            isNumeric = false;
+          }
+
+
+        }
+      });
+
+      const isBinary = uniqueValues.size === 2 
+      
+
+      const isCategorical = uniqueValues.size/ data.length <0.03
+
+      if (isBinary && isNumeric) {
+        return 'numeric binary';
+      }
+      else if (isBinary  ){
+          return 'categorical binary'
+      }
+      else if (isNumeric) {
+        return 'numeric';
+      } else if (isCategorical) {
+        return 'categorical';
+      } else {
+        return 'string';
+      }
+    },
+    determineDataTypes(data, headers) {
+      const dataTypes = {};
+      headers.forEach((header, index) => {
+        dataTypes[header] = this.determineDataTypeForColumn(data, index);
+        this.convertColumnData(data, index, dataTypes[header]);
+      });
+      return dataTypes;
+    },
+
+    convertColumnData(row_data, columnIndex, dataType) {
+
+      row_data.forEach(row => {
+        let value = row[columnIndex];
+
+        if (dataType === 'numeric' || dataType === 'numeric binary') {
+          row[columnIndex] = parseFloat(value);
+        } 
+      });
+    },
+
+
+
+
+    updateDataTypesForNewColumns(instance, newColumns =[]) {
+      const newHeaders = instance.data[0];
+      newHeaders;
+      // Determine data types for new columns only
+      newHeaders.forEach(header => {
+        if (!Object.prototype.hasOwnProperty.call(instance.dataTypes, header) || newColumns.includes(header)) {
+          const colIndex = newHeaders.indexOf(header);
+          instance.dataTypes[header] = this.determineDataTypeForColumn(instance.data.slice(1), colIndex);
+          this.convertColumnData(instance.data.slice(1), colIndex, instance.dataTypes[header]);
+        }
+      });
+
+      // Remove columns from dataTypes that no longer exist
+      Object.keys(instance.dataTypes).forEach(header => {
+        if (!newHeaders.includes(header)) {
+          delete instance.dataTypes[header];
+        }
+      });
+
+    },
+    loadMoreRows() {
+      this.loading = true;
+      setTimeout(() => {
+        const startIndex = this.currentPage * this.rowsPerPage + 1;
+        const endIndex = startIndex + this.rowsPerPage;
+        if (startIndex < this.csvData.length) {
+          this.displayedRows.push(...this.csvData.slice(startIndex, endIndex));
+          this.currentPage++;
+        }
+        this.loading = false;
+      }, 1000);
+    },
+    loadMoreRowsForInstance(instanceIndex) {
+      this.dataInstances[instanceIndex].loading = true;
+      const instance = this.dataInstances[instanceIndex];
+      const startIndex = instance.currentPage * this.rowsPerPage + 1;
+      const endIndex = startIndex + this.rowsPerPage;
+      if (startIndex < instance.data.length) {
+        instance.displayedRows.push(...instance.data.slice(startIndex, endIndex));
+        instance.currentPage++;
+      }
+      instance.loading = false;
+    },
+    columnsWithMissingValues(instance) {
+    const columnsWithMissing = [];
+    const headers = instance.data[0];
+    console.log(headers)
+
+    headers.forEach((header, index) => {
+      const hasMissing = instance.data.slice(1).some(row => row[index] === ''  || row[index] === null || row[index] === undefined);
+      if (hasMissing) {
+        columnsWithMissing.push(header);
+      }
+    });
+    console.log(columnsWithMissing)
+
+    return columnsWithMissing;
+  },
+
+
+
+
+    prepareNewInstance(instance) {
+      this.instanceParent = instance.data;
+      this.currentDataTypes = instance.dataTypes;
+      this.creatingInstance = true;
+    },
+    createNewInstance({ data, name, dataTypes }) {
+      setTimeout(() => {
+        this.dataInstances.push({
+          data: JSON.parse(JSON.stringify(data)),
+          displayedRows: JSON.parse(JSON.stringify(data.slice(1, this.rowsPerPage + 1))),
+          currentPage: 1,
+          totalRows: data.length - 1,
+          loading: false,
+          name: name,
+          dataTypes: JSON.parse(JSON.stringify(dataTypes)), // Ensure independent copy
+          modelInfo: null,
+          isCollapsed: false,
+          isinbuildingModelPhase: false,
+          MLmodels: [[
+            new LinearRegression(),
+            new LogisticRegression()
+          ]],
+          Statsmodels: [[
+            new LinearRegression(),
+            new LogisticRegression()
+          ]]
+        });
+        this.creatingInstance = false;
+      }, 1000);
+    },
+    confirmDelete(instanceIndex) {
+      if (window.confirm('Are you sure you want to delete this instance?')) {
+        this.deleteInstance(instanceIndex);
+      }
+    },
+    deleteInstance(instanceIndex) {
+      this.dataInstances.splice(instanceIndex, 1);
+    },
+    addnewMLModel(instanceIndex) {
+
+      const models = [
+        new LinearRegression(),
+        new LogisticRegression()
+      ]
+      this.dataInstances[instanceIndex].MLmodels.push(models);
+
+    },
+
+    addnewStatsModel(instanceIndex) { /// neeed to change
+
+      const models = [
+        new LinearRegression(),
+        new LogisticRegression()
+      ]
+      this.dataInstances[instanceIndex].Statsmodels.push(models);
+
+    },
+    toggleCollapse(instanceIndex) {
+      if (this.dataInstances[instanceIndex]) {
+        this.dataInstances[instanceIndex].isCollapsed = !this.dataInstances[instanceIndex].isCollapsed;
+      }
+    },
+
+    isNumeric(value) {
+      // Check for null or empty string
+      if (value === null || value === '') {
+        return false;
+      }
+
+      // Check if the value is a number or can be converted to a number
+      if (!isNaN(value)) {
+        return true;
+      }
+
+      // Otherwise, return false
+      return false;
+    },
+    showErrorModalWithTimeout(message) {
+      this.errorMessage = message;
+      this.showErrorModal = true;
+      setTimeout(() => {
+        this.showErrorModal = false;
+      }, 1000); // Hide the modal after 1 second
+    },
+    changeMetricType(columnName, type, instance) {
+      const colIndex = instance.data[0].indexOf(columnName);
+      let isConvertible = true;
+
+      if (type === 'numeric') {
+        // Check if all values can be converted to numeric
+        isConvertible = instance.data.slice(1).every(row => this.isNumeric(row[colIndex]));
+      } else if (type === 'numeric binary') {
+        // Check if there are only two unique values
+        let isNumeric = instance.data.slice(1).every(row => this.isNumeric(row[colIndex]));
+        const uniqueValues = new Set(instance.data.slice(1).map(row => row[colIndex]));
+        isConvertible = uniqueValues.size === 2 && isNumeric;
+      } 
+
+      else if (type === 'categorical binary') {
+        // Check if there are only two unique values
+        let isNumeric = instance.data.slice(1).every(row => this.isNumeric(row[colIndex]));
+        const uniqueValues = new Set(instance.data.slice(1).map(row => row[colIndex]));
+        isConvertible = uniqueValues.size === 2 && !isNumeric;
+      } 
+
+
+      if (!isConvertible) {
+        this.showErrorModalWithTimeout(`Column ${columnName} cannot be converted to ${type}.`);
+        return;
+      }
+
+      instance.dataTypes[columnName] = type;
+      this.convertColumnData(instance.data.slice(1), colIndex, type);
+
+
+    },
+
+
+    switchmodelzoneview() {
+      if (this.currentModelView === "ml") {
+        this.currentModelView = "stats"
+      } else {
+        this.currentModelView = "ml"
+      }
+    },
+
+
+
+    async scaleColumn(columnName, instance, method, newMin = 0, newMax = 1) {
+      newMin = Number(newMin);
+      newMax = Number(newMax);
+
+      // Validate newMin and newMax
+      if (isNaN(newMin) || isNaN(newMax)) {
+        this.showErrorModalWithTimeout('newMin and newMax must be valid numbers');
+        return;
+      }
+
+      if (newMax <= newMin) {
+        this.showErrorModalWithTimeout('newMax must be greater than newMin');
+        return;
+      }
+
+      const dataToSend = {
+        data: instance.data.map(row => ({ columns: row }))
+      };
+
+      const response = await axios.post('/scale', dataToSend, {
+        params: {
+          column_name: columnName,
+          method: method,
+          new_min: newMin,
+          new_max: newMax
+        }
+      });
+
+      this.updateDataFromBackend(instance, response);
+      this.updateDataTypesForNewColumns(instance);
+      this.shownormalizemodal = false;
+    },
+
+
+
+    async onehotEncode(columnName, instance) {
+      console.log
+      console.log(columnName)
+      
+      const dataToSend = {
+        data: instance.data.map(row => ({ columns: row }))
+      };
+      console.log(dataToSend)
+
+
+      const response = await axios.post('/onehotencoding', dataToSend, {
+        params: {
+          column_name: columnName
+        }
+      });
+
+
+      this.updateDataFromBackend(instance, response)
+      // Update data types for new columns and remove obsolete ones
+      this.updateDataTypesForNewColumns(instance);
+
+      this.showonehotmodal = false;
+    },
+
+    updateDataFromBackend(instance, response) {
+      const updatedData = JSON.parse(response.data.data);
+
+      // Example assuming updatedData is an array of objects (each object is a row)
+      let headers_test = updatedData[0]
+      let headers = Object.keys(headers_test); // Check if this gives the correct headers
+
+
+
+
+      // Map the updatedData to rows in the expected format
+      const rows = updatedData.map(row => headers.map(header => row[header]));
+        rows;
+      // Update instance data with the new headers and rows
+      instance.data = [headers, ...rows];
+      instance.displayedRows = instance.data.slice(1, this.rowsPerPage + 1);
+    },
+
+    handleBuildingPhase(instance) {
+      instance.isinbuildingModelPhase = !instance.isinbuildingModelPhase;
+      instance.MLmodels = [[
+        new LinearRegression(),
+        new LogisticRegression()
+      ]]
+      instance.Statsmodels = [[
+        new LinearRegression(),
+        new LogisticRegression()
+      ]]
+    },
+
+    isValidDate(value) {
+      // Check if the value is a Date object
+      if (Object.prototype.toString.call(value) === "[object Date]") {
+        return !isNaN(value.getTime());
+      }
+      // Check if the value is a string that can be converted to a valid date
+      if (typeof value === 'string') {
+        const date = new Date(value);
+        return !isNaN(date.getTime());
+      }
+      return false;
+    },
+
+    handleSubmitModel(selectedValues) {
+      console.log('Submitted Model Values:', selectedValues);
+    },
+
+    async handleNewColumnCreation(newColumnCreationMetaData, instanceIndex) {
+      const instance = this.dataInstances[instanceIndex];
+
+      const dataToSend = {
+        data: instance.data.map(row => ({ columns: row }))
+      };
+      console.log(dataToSend)
+
+      // Combine data and columnCreationInput into the request body
+      const requestBody = {
+        data: dataToSend,
+        columnCreationInput: newColumnCreationMetaData
+      };
+
+
+      try {
+        // Send the request to the backend
+        const response = await axios.post('/columnCreation', requestBody, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        // Handle the response as needed, for example, update the instance with the new data
+        this.updateDataFromBackend(instance, response);
+        this.updateDataTypesForNewColumns(instance, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
+
+      } catch (error) {
+        console.error('Error:', error);
+        // Handle error appropriately
+      }
+    },   transformDataForDataTable(instance) {
+    const headers = instance.data[0];
+    const rows = instance.data.slice(1, 30).map(row => {
+      const rowData = {};
+      headers.forEach((header, index) => {
+        rowData[header] = row[index];
+      });
+      return rowData;
+    });
+    return rows;
   }
-}
+  
+
+    
+
+  }
+};
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
-h3 {
-  margin: 40px 0 0;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  display: inline-block;
-  margin: 0 10px;
-}
-a {
-  color: #42b983;
-}
-</style>
+
+
+<style src="@/assets/styles.css" scoped></style>

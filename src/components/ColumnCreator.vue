@@ -88,18 +88,18 @@ data() {
     columnName: "",
     columnNameExistsWarn: null,
     conditionGroups: [
-      {
-        consitions:[],
+      //{
+        //consitions:[],
         // conditions: [{
         //   column: "",
         //   operator: "",
         //   value: "",
         //   availableOperators: []
         // }],
-        result: "",
-        resultType: "value",
-        errorMessage: ""
-      }
+      //   result: "",
+      //   resultType: "value",
+      //   errorMessage: ""
+      // }
     ],
     defaultValue: "",
     defaultValueType: "value",

@@ -19,26 +19,18 @@
         <div v-for="(instance, instanceIndex) in dataInstances" :key="instanceIndex" class="instance-container">
           <div class="header">
             <div class="header-content">
-              <button class="btn btn-success btn-very-small" @click="prepareNewInstance(instance)">
-                <span v-if="creatingInstance" class="spinner-border spinner-border-sm" role="status"
-                  aria-hidden="true"></span>
-                <span v-else>Create New Instance</span>
-              </button>
+              <Button label="Create New Instance" icon="pi pi-plus"  @click="prepareNewInstance(instance)" :loading="creatingInstance"   style="background-color: #28a745; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"   loadingIcon="pi pi-spinner" />
+
               <h3 class="text-center name-small">Name: {{ instance.name }}</h3>
-              <button class="btn btn-danger btn-very-small" @click="confirmDelete(instanceIndex)">
-                <span>Delete Instance</span>
-              </button>
+              <Button label="Delete Instance" icon="pi pi-times" @click="confirmDelete(instanceIndex)" style="background-color: #6f42c1; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);" :class="customButtonClass"/>
             </div>
             <span v-if="instance" :class="{ collapsed: instance.isCollapsed }"
               @click="toggleCollapse(instanceIndex)">&#9660;</span>
           </div>
           <div class = "data-manipulation-button-container ">
-            <button class = "btn btn-warning btn-small" @click="creatingNewColumn = true">
-              <span> Create A new Column </span>
-            </button>
-            <button class = "btn btn-warning btn-small" @click = "handlingMissingValues = true">
-              <span> Handle Missing Values (not Implemented) </span>
-            </button>
+            <Button label="Create A new Column" icon="pi pi-plus" @click="creatingNewColumn = true" style="background-color: #6c757d; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"/>
+            <Button label="Handle Missing Values (not Implemented)" icon="pi pi-exclamation-circle"  @click="handlingMissingValues = true" style="background-color: #6c757d; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"/>
+
           </div>
           <ColumnCreator v-if="creatingNewColumn" :instanceIndex="instanceIndex"
                 :availableColumns="instance.data[0]" :column-types="instance.dataTypes"
@@ -286,6 +278,7 @@ import axios from '@/axios.js'; // Path to the axios.js file
 import ColumnCreator from './components/ColumnCreator.vue';
 import missingValueHandler from './components/missingValueHandler.vue';
 import {getColumnNamesByType} from './utils/commonFunctions.js';
+import Button from 'primevue/button';
 
 export default {
   name: 'FileUpload',
@@ -328,7 +321,8 @@ export default {
     CDropdownItem,
     CFormSelect,
     CCard,
-    CCardHeader
+    CCardHeader,
+    Button
   },
   computed: {
     dropMessage() {
