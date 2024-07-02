@@ -21,7 +21,8 @@
     "primeicons": "^7.0.0",
     "primevue": "^3.53.0",
     "vue": "^3.1.0",
-    "vue-tables-2": "^2.3.5"
+    "vue-tables-2": "^2.3.5",
+    "vuedraggable": "^2.24.3"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",

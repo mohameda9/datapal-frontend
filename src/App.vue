@@ -15,7 +15,7 @@
       </div>
 
       <!-- Display instances of CSV data -->
-      <div v-if="dataInstances.length > 0" class="mt-5">
+      <div v-if="dataInstances.length > 0" class = "mt-3">
         <div v-for="(instance, instanceIndex) in dataInstances" :key="instanceIndex" class="instance-container">
           <div class="header">
             <div class="header-content">
@@ -25,7 +25,8 @@
               <Button label="Delete Instance" icon="pi pi-times" @click="confirmDelete(instanceIndex)" style="background-color: #6f42c1; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);" :class="customButtonClass"/>
             </div>
             <span v-if="instance" :class="{ collapsed: instance.isCollapsed }"
-              @click="toggleCollapse(instanceIndex)">&#9660;</span>
+              @click="toggleCollapse(instance)">&#9660;</span>
+              
           </div>
           <div class = "data-manipulation-button-container ">
             <Button label="Create A new Column" icon="pi pi-plus" @click="creatingNewColumn = true" style="background-color: #6c757d; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"/>
@@ -34,7 +35,7 @@
           </div>
           <ColumnCreator v-if="creatingNewColumn" :instanceIndex="instanceIndex"
                 :availableColumns="instance.data[0]" :column-types="instance.dataTypes"
-                @close="creatingNewColumn = false" @submit="(data) => handleNewColumnCreation(data, instanceIndex)" />
+                @close="creatingNewColumn = false" @submit="(data) => wf_createNewColumn(data, instanceIndex)" />
           
           <missingValueHandler v-if ="handlingMissingValues" @close = "handlingMissingValues = false" :availableColumns = "columnsWithMissingValues(instance)" :columntypes="instance.dataTypes" />   
 
@@ -100,70 +101,46 @@
             </div>
 
             <div v-if="!instance.isinbuildingModelPhase" class="button-center-container">
-              <CDropdown>
-                <CDropdownToggle color="primary">Feature Engineering options</CDropdownToggle>
-                <CDropdownMenu>
-                  <CDropdownItem href="#" @click="shownormalizemodal = true;">Standardize columns</CDropdownItem>
-                  <CDropdownItem href="#" @click="showonehotmodal = true;">One hot encoding</CDropdownItem>
-                  <CDropdownItem href="#" @click="shownormalizemodal = true;">Normalize columns</CDropdownItem>
-                </CDropdownMenu>
-              </CDropdown>
 
 
-              <Modal v-if="showonehotmodal" @close="showonehotmodal = false">
-                <template v-slot:header>
-                  <h2>One hot encoding</h2>
-                </template>
+              <Dialog v-if="showonehotmodal" visible editable @hide="showonehotmodal = false" :modal="true" :closable="true" header="One hot encoding">
+                <p>Select a categorical column to one hot encode</p>
+                <div class="custom-dropdown-container">
+                  <Dropdown v-model="columnValue" :options="getColumnNamesByType(instance, ['categorical'])" :option-label="getColumnNamesByType(instance, ['categorical'])" type = "text" class="w-full"  />
 
-                <template v-slot:body>
-                  <p>Select a categorical column to one hot encode</p>
-                  <select size="lg" class="mb-3" aria-label="Large select example" v-model="selectedValue">
-                    <option disabled value="">Open this select menu</option>
-                    <option v-for="(value, key) in getColumnNamesByType(instance, ['categorical'])" :key="key" :value="value">
-                      {{ value }}
-                    </option>
-                </select>
+                </div>
+                <div class="modal-footer">
+                  <Button label="Submit" icon="pi pi-check" @click="wf_oneHotEncode(columnValue, instance)" />
+                  <Button label="Cancel" icon="pi pi-times" class="p-button-secondary" @click="showonehotmodal = false" />
+                </div>
+              </Dialog>
 
-                </template>
+              <Dialog  v-if="shownormalizemodal" visible hide="shownormalizemodal = false" :modal="true" :closable="false"  header="One hot encoding">
+                <p>Select a numerical column to normalize</p>
+                <div class="custom-dropdown-container">
+                  <Dropdown v-model="selectedValue" :options="getColumnNamesByType(instance, ['numeric'])" placeholder="Select a column" class="w-full"  />
+                    </div>
+                    <div class="input-group">
+                      <div class="input-item">
+                        <p>Min value</p>
+                        <input type="number" step="1" value="0" v-model.number="newMin"  @input="validateMinMax" />
+                      </div>
 
-                <template v-slot:footer>
-                  <button @click="onehotEncode(selectedValue, instance)">Submit</button>
-                </template>
-              </Modal>
+                      <div class="input-item">
+                        <p>Max value</p>
+                        <input  type="number"  value="1" step="1"  v-model.number="newMax" @input="validateMinMax" />
+                      </div>
+                    </div>
 
-              <Modal v-if="shownormalizemodal" @close="shownormalizemodal = false">
-                <template v-slot:body>
-                  <p>Select a numerical column to normalize</p>
-                  <CFormSelect size="lg" class="mb-3" aria-label="Large select example"
-                    @update:model-value="val => selectedColumn = val">
-                    <option disabled value="">Open this select menu</option>
-                    <option v-for="(value, key) in getColumnNamesByType(instance, ['numeric'])" :key="key" :value="value">
-                      {{ value }}
-                    </option>
-                  </CFormSelect>
+                    <div v-if="minMaxvalidationError" class="error-message">
+                      {{ minMaxvalidationError }}
+                    </div>
 
-                  <div>
-                    <p>Min value</p>
-                    <input type="number" step="1" v-model.number="newMin" @input="validateMinMax" />
-                  </div>
-                  <div>
-                    <p>Max value</p>
-                    <input type="number" step="1" v-model.number="newMax" @input="validateMinMax" />
-                  </div>
-
-                  <div v-if="validationError" class="error-message">
-                    {{ validationError }}
-                  </div>
-                </template>
-
-                <template v-slot:footer>
-                  <button :disabled="!!validationError"
-                    @click="scaleColumn(selectedColumn ? selectedColumn : getColumnNamesByType(instance, ['numeric'])[0], instance, 'normalize', newMin, newMax)">
-                    Normalize column
-                  </button>
-                </template>
-
-              </Modal>
+                    <div class="modal-footer">
+                      <Button label="Submit" icon="pi pi-check" @click="wf_scaleColumn(selectedValue ? selectedValue : getColumnNamesByType(instance, ['numeric'])[0], instance, 'normalize', newMin, newMax)" />
+                      <Button label="Cancel" icon="pi pi-times" class="p-button-secondary" @click="shownormalizemodal = false" />
+                    </div>
+                </Dialog>
             </div>
 
             <div>
@@ -173,79 +150,20 @@
                   engineering</span>
               </button>
 
-              <div v-if="instance.isinbuildingModelPhase" @click="switchmodelzoneview">
-                <button class="toggle-stats-ml-view">
-                  <span v-if="currentModelView === 'stats'"> switch to ML Models View</span>
-                  <span v-if="currentModelView === 'ml'"> switch to statistical Analysis View</span>
-                </button>
-              </div>
             </div>
 
-            <div v-show="instance.isinbuildingModelPhase && currentModelView === 'ml'">
-              <CCard :class="{ collapsed: true }">
-                <CCardHeader>
-                  Models
-                  <div class="addmodel-button-container">
-                    <button class="btn btn-success mt-3 btn-very-small" @click="addnewMLModel(instanceIndex)">
-                      &#43;
-                    </button>
-                  </div>
-                </CCardHeader>
+            
 
-                <div class="card-content">
-                  <ModelInfo v-for="(value, key) in instance.MLmodels" :models="value" :key="key"
-                    :variables="instance.data[0]" @deleteModel="key => {
-                      instance.MLmodels.splice(key, 1);
-                    }" @updateModel="model => {
-                      console.log(model);
-                    }" @submittingModel="handleSubmitModel">
-                  </ModelInfo>
-                </div>
-              </CCard>
-            </div>
 
-            <div v-show="instance.isinbuildingModelPhase && currentModelView === 'stats'" class="stats-models-view">
-              <CCard>
-                <CCardHeader>
-                  Statistical Analysis
-                  <div class="addmodel-button-container">
-                    <button class="btn btn-success mt-3 btn-very-small" @click="addnewStatsModel(instanceIndex)">
-                      &#43;
-                    </button>
-                  </div>
-                </CCardHeader>
+            <DataProcessingWorkflow :workflows="instance.workflow" @workflow-action="handleWorkflowAction" @execute-workflows="(workflows) => handleExecuteWorkflows(workflows, instance)"  
+            @update:workflows="(workflows) => updateWorkflow(workflows, instance)"  />
+            
 
-                <div class="card-content">
-                  <ModelInfo v-for="(value, key) in instance.Statsmodels" :models="value" :key="key"
-                    :variables="instance.data[0]" @deleteModel="key => {
-                      instance.Statsmodels.splice(key, 1);
-                    }" @updateModel="model => {
-                      console.log(model);
-                    }" @submittingModel="handleSubmitModel">
-                  </ModelInfo>
-                </div>
-              </CCard>
-            </div>
+            
           </div>
         </div>
       </div>
 
-      <!-- Error message -->
-
-      <!-- Error modal -->
-      <Modal v-if="showErrorModal" @close="showErrorModal = false">
-        <template v-slot:header>
-          <h2>Error</h2>
-        </template>
-
-        <template v-slot:body>
-          <p>{{ errorMessage }}</p>
-        </template>
-
-        <template v-slot:footer>
-          <button class="btn btn-danger" @click="showErrorModal = false">Close</button>
-        </template>
-      </Modal>
     </div>
 
 
@@ -255,36 +173,38 @@
 
 
 
-  <Modal v-if="creatingInstance" @close="creatingInstance = false"
+  <myModal v-if="creatingInstance" @close="creatingInstance = false"
     @submit="name => createNewInstance({ data: instanceParent, name, dataTypes: currentDataTypes })"
     :existingNames="dataInstances.map(instance => instance.name)" />
 </template>
 
 <script>
-import Modal from './components/Modal.vue';
-import ModelInfo from './components/ModelInfo.vue';
+import myModal from './components/myModal.vue';
+//import ModelInfo from './components/ModelInfo.vue';
 import { LinearRegression, LogisticRegression } from './classes/Model';
 import {
   CDropdown,
   CDropdownToggle,
   CDropdownMenu,
   CDropdownItem,
-  CFormSelect,
-  CCard,
-  CCardHeader
-} from '@coreui/vue';
+} from '@coreui/vue'; 
 
 import axios from '@/axios.js'; // Path to the axios.js file
 import ColumnCreator from './components/ColumnCreator.vue';
 import missingValueHandler from './components/missingValueHandler.vue';
 import {getColumnNamesByType} from './utils/commonFunctions.js';
 import Button from 'primevue/button';
+import DataProcessingWorkflow from './components/DataProcessingWorkflow.vue';
+import Dropdown from 'primevue/dropdown';
+import Dialog from 'primevue/dialog';
+
 
 export default {
   name: 'FileUpload',
   data() {
     return {
       showonehotmodal: false,
+      minMaxvalidationError : null,
       creatingNewColumn: false,
       shownormalizemodal: false,
       handlingMissingValues: false,
@@ -305,6 +225,8 @@ export default {
       parsing: false,
       showErrorModal: false, // New property for error modal visibility
       errorMessage: '', // New property for error message
+
+      
     };
   },
   created(){
@@ -313,15 +235,14 @@ export default {
   components: {
     ColumnCreator,
     missingValueHandler,
-    Modal,
-    ModelInfo,
+    myModal,
+    Dialog,
     CDropdown,
+    DataProcessingWorkflow,
     CDropdownToggle,
     CDropdownMenu,
     CDropdownItem,
-    CFormSelect,
-    CCard,
-    CCardHeader,
+    Dropdown,
     Button
   },
   computed: {
@@ -457,26 +378,15 @@ export default {
 
 
 
-    updateDataTypesForNewColumns(instance, newColumns =[]) {
-      const newHeaders = instance.data[0];
-      newHeaders;
-      // Determine data types for new columns only
-      newHeaders.forEach(header => {
-        if (!Object.prototype.hasOwnProperty.call(instance.dataTypes, header) || newColumns.includes(header)) {
-          const colIndex = newHeaders.indexOf(header);
-          instance.dataTypes[header] = this.determineDataTypeForColumn(instance.data.slice(1), colIndex);
-          this.convertColumnData(instance.data.slice(1), colIndex, instance.dataTypes[header]);
-        }
-      });
-
-      // Remove columns from dataTypes that no longer exist
-      Object.keys(instance.dataTypes).forEach(header => {
-        if (!newHeaders.includes(header)) {
-          delete instance.dataTypes[header];
-        }
-      });
-
+    updateDataTypesForNewColumns(instance, newColumns, DataType) {
+      
+      newColumns.forEach(column => {
+        instance.dataTypes[column] = DataType;
+        });
+        console.log(instance.dataTypes)
+    
     },
+
     loadMoreRows() {
       this.loading = true;
       setTimeout(() => {
@@ -535,6 +445,9 @@ export default {
           name: name,
           dataTypes: JSON.parse(JSON.stringify(dataTypes)), // Ensure independent copy
           modelInfo: null,
+          workflow:[],
+          histWf_isCollapsed :true,
+          historicalWorkflow:[],
           isCollapsed: false,
           isinbuildingModelPhase: false,
           MLmodels: [[
@@ -576,9 +489,14 @@ export default {
       this.dataInstances[instanceIndex].Statsmodels.push(models);
 
     },
-    toggleCollapse(instanceIndex) {
-      if (this.dataInstances[instanceIndex]) {
-        this.dataInstances[instanceIndex].isCollapsed = !this.dataInstances[instanceIndex].isCollapsed;
+    toggleCollapse(instance) {
+      if (instance) {
+        instance.isCollapsed = !instance.isCollapsed;
+      }
+    },
+    togglehist_wf_Collapse(instance) {
+      if (instance) {
+      instance.histWf_isCollapsed = !instance.histWf_isCollapsed;
       }
     },
 
@@ -653,7 +571,7 @@ export default {
 
       // Validate newMin and newMax
       if (isNaN(newMin) || isNaN(newMax)) {
-        this.showErrorModalWithTimeout('newMin and newMax must be valid numbers');
+        this.validateMinMax('newMin and newMax must be valid numbers');
         return;
       }
 
@@ -662,8 +580,15 @@ export default {
         return;
       }
 
+      const index = instance.data[0].indexOf(columnName)
+      console.log(index)
+
+      const columnData = instance.data.map(row => {
+        return [row[index]] ;
+      })
+
       const dataToSend = {
-        data: instance.data.map(row => ({ columns: row }))
+        data: columnData.map(row => ({ columns: row }))
       };
 
       const response = await axios.post('/scale', dataToSend, {
@@ -675,53 +600,15 @@ export default {
         }
       });
 
-      this.updateDataFromBackend(instance, response);
-      this.updateDataTypesForNewColumns(instance);
+      const new_headers = this.updateDataFromBackend(instance, response);
+      this.updateDataTypesForNewColumns(instance, new_headers, ["numeric"]);
       this.shownormalizemodal = false;
     },
 
 
 
-    async onehotEncode(columnName, instance) {
-      console.log(columnName)
-      
-      const dataToSend = {
-        data: instance.data.map(row => ({ columns: row }))
-      };
-      console.log(dataToSend)
 
 
-      const response = await axios.post('/onehotencoding', dataToSend, {
-        params: {
-          column_name: columnName
-        }
-      });
-
-
-      this.updateDataFromBackend(instance, response)
-      // Update data types for new columns and remove obsolete ones
-      this.updateDataTypesForNewColumns(instance);
-
-      this.showonehotmodal = false;
-    },
-
-    updateDataFromBackend(instance, response) {
-      const updatedData = JSON.parse(response.data.data);
-
-      // Example assuming updatedData is an array of objects (each object is a row)
-      let headers_test = updatedData[0]
-      let headers = Object.keys(headers_test); // Check if this gives the correct headers
-
-
-
-
-      // Map the updatedData to rows in the expected format
-      const rows = updatedData.map(row => headers.map(header => row[header]));
-        rows;
-      // Update instance data with the new headers and rows
-      instance.data = [headers, ...rows];
-      instance.displayedRows = instance.data.slice(1, this.rowsPerPage + 1);
-    },
 
     handleBuildingPhase(instance) {
       instance.isinbuildingModelPhase = !instance.isinbuildingModelPhase;
@@ -735,22 +622,8 @@ export default {
       ]]
     },
 
-    isValidDate(value) {
-      // Check if the value is a Date object
-      if (Object.prototype.toString.call(value) === "[object Date]") {
-        return !isNaN(value.getTime());
-      }
-      // Check if the value is a string that can be converted to a valid date
-      if (typeof value === 'string') {
-        const date = new Date(value);
-        return !isNaN(date.getTime());
-      }
-      return false;
-    },
 
-    handleSubmitModel(selectedValues) {
-      console.log('Submitted Model Values:', selectedValues);
-    },
+
 
     async handleNewColumnCreation(newColumnCreationMetaData, instanceIndex) {
       const instance = this.dataInstances[instanceIndex];
@@ -783,9 +656,150 @@ export default {
         console.error('Error:', error);
         // Handle error appropriately
       }
+    },
+
+
+    handleWorkflowAction(action) {
+      if (action === 'onehot-encoding') {
+        this.showonehotmodal = true;
+      } else if (action === 'normalize-column') {
+        this.shownormalizemodal = true;
+      } else if (action === 'create-new-column') {
+        this.creatingNewColumn = true;
+      }
+    },
+
+    updateWorkflow(workflow, instance){
+      console.log("aaaa")
+      console.log(workflow)
+      instance.workflow = workflow
+
+      
+    },
+    handleWorkflowSubmission(instance, action, description, APIdata) {
+      console.log("sshdjs")
+      const actionDescriptions = {
+        'onehot-encoding': 'One Hot Encoding',
+        'normalize-column': 'Normalize Column',
+        'create-new-column': 'Create New Column',
+        'standardize-column': 'standardize Column'
+      };
+      const newWorkflow = { title: actionDescriptions[action], description: description, APIdata: APIdata };
+      instance.workflow.push(newWorkflow);
+    },
+
+
+    wf_oneHotEncode(columnName, instance) {
+      if (!columnName) {
+        alert('Please select a column to one hot encode.');
+        return;
+      }
+
+      this.showonehotmodal = false;
+        this.handleWorkflowSubmission(instance, 'onehot-encoding', `one hot encode Column: ${columnName}`, {"columnName": columnName}  );
+
+      },
+    wf_scaleColumn(columnName, instance, method, newMin =0, newMax=1) {
+
+      newMin = Number(newMin);
+      newMax = Number(newMax);
+
+      // Validate newMin and newMax
+      if (isNaN(newMin) || isNaN(newMax)) {
+        this.minMaxvalidationError = 'newMin and newMax must be valid numbers';
+        return;
+      }
+
+      if (newMax <= newMin) {
+        this.minMaxvalidationError = 'max must be greater than min and valid numbers';
+        return;
+      }
+      this.minMaxvalidationError = null
+
+      if (method ==="normalize"){
+
+      
+        this.shownormalizemodal = false;
+        this.handleWorkflowSubmission(instance,'normalize-column', `normalize Column: ${columnName} values from ${newMin} to ${newMax}`,
+                                {"columnName": columnName, "newMin":newMin, "newMax":newMax});
+      
     }
+    else if (method ==="standardize"){
+        this.shownormalizemodal = false;
+        this.handleWorkflowSubmission(instance, 'standardize-column', `standardize Column: ${columnName}`);
+
+      }
+    },
+    wf_createNewColumn(newColumnCreationMetaData, instanceIndex) {
+      this.handleNewColumnCreation(newColumnCreationMetaData, instanceIndex).then(() => {
+        this.creatingNewColumn = false;
+        this.handleWorkflowSubmission('create-new-column');
+      });
+    },
+
+
+
+    async handleExecuteWorkflows(workflows,instance) {
+      console.log("fdhsjksaffhfjdjjs")
+      console.log('Workflows to execute:', workflows);
+      console.log(instance.data)
+      // Here you can add the logic to send the workflows to your API
+
+      const dataToSend = {
+        data: instance.data.map(row => ({ columns: row }))
+      };
+      console.log(dataToSend)
+
+      // Combine data and columnCreationInput into the request body
+      const requestBody = {
+        data: dataToSend,
+        workflow: workflows
+      };
+
+      requestBody;
+
+
+      try {
+        // Send the request to the backend
+        const response = await axios.post('/executeWorkflow', requestBody, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        // Handle the response as needed, for example, update the instance with the new data
+        this.updateDataFromBackend_new(instance, response);
+        instance.workflow = workflows
+        //this.updateDataTypesForNewColumns(instance, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
+
+      } catch (error) {
+        console.error('Error:', error);
+        // Handle error appropriately
+      }
+
+    },
+
+    updateDataFromBackend_new(instance, response){
+
+    
+    const updatedData = JSON.parse(response.data.data);
+
+      // Example assuming updatedData is an array of objects (each object is a row)
+      let headers_test = updatedData[0]
+      let headers = Object.keys(headers_test); // Check if this gives the correct headers
+
+
+      // Map the updatedData to rows in the expected format
+      const rows = updatedData.map(row => headers.map(header => row[header]));
+        rows;
+      // Update instance data with the new headers and rows
+      instance.data = [headers, ...rows];
+      instance.displayedRows = instance.data.slice(1, this.rowsPerPage + 1);
+    },
+  
 
   }
+
 };
 </script>
 
