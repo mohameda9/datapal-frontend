@@ -14,8 +14,22 @@
         {{ uploadError }}
       </div>
 
+
+      <Dialog :visible="dataloadView && dataInstances.length > 0" header="Columns Overview" class="data-load-dialog" :style="{ width: '50vw', height:'50vh'}" :position="position" :draggable="false">
+    <div class="dialog-content scrollable-content">
+      <div v-for="(value, column) in dataInstances[0].dataTypes" :key="column" class="field column-field">
+        <Button icon="pi pi-trash" class="delete-button" @click="{columnsTodelete.push(column); delete dataInstances[0].dataTypes[column]}" />
+        <label :for="column" class="column-label">{{ column }}</label>
+
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <Button label="Submit" icon="pi pi-check"  @click = "deleteColumns(columnsTodelete, dataInstances[0])" />
+    </div>
+  </Dialog>
+
       <!-- Display instances of CSV data -->
-      <div v-if="dataInstances.length > 0" class = "mt-3">
+      <div v-if="dataInstances.length > 0  && !dataloadView" class = "mt-3">
         <div v-for="(instance, instanceIndex) in dataInstances" :key="instanceIndex" class="instance-container">
           <div class="header">
             <div class="header-content">
@@ -41,8 +55,8 @@
 
           <div v-show="instance && !instance.isCollapsed">
             <div class="table-container" @scroll="e => e.target.focus({ focusVisible: true })" @scrollend="(e) => {
-              if (instance.displayedRows.length < instance.totalRows)
-                loadMoreRowsForInstance(instanceIndex);
+              if (instance.numdisplayedRows.length < instance.totalRows)
+              loadMoreRows(instance);
               e.target.focus();
             }">
               <table class="table table-bordered table-striped">
@@ -93,7 +107,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(row, rowIndex) in instance.displayedRows" :key="rowIndex">
+                  <tr v-for="(row, rowIndex) in instance.data.slice(1,instance.numdisplayedRows)" :key="rowIndex">
                     <td v-for="(value, colIndex) in row" :key="colIndex">{{ value }}</td>
                   </tr>
                 </tbody>
@@ -103,10 +117,10 @@
             <div v-if="!instance.isinbuildingModelPhase" class="button-center-container">
 
 
-              <Dialog v-if="showonehotmodal" visible editable @hide="showonehotmodal = false" :modal="true" :closable="true" header="One hot encoding">
+              <Dialog v-if="showonehotmodal" visible editable @hide="showonehotmodal = false" :modal="true"  header="One hot encoding">
                 <p>Select a categorical column to one hot encode</p>
                 <div class="custom-dropdown-container">
-                  <Dropdown v-model="columnValue" :options="getColumnNamesByType(instance, ['categorical'])" :option-label="getColumnNamesByType(instance, ['categorical'])" type = "text" class="w-full"  />
+                  <Dropdown v-model="columnValue" :options="getColumnNamesByType(instance, ['categorical'])"  class="w-full"  />
 
                 </div>
                 <div class="modal-footer">
@@ -143,17 +157,9 @@
                 </Dialog>
             </div>
 
-            <div>
-              <button class="goto-build-phase" @click=" handleBuildingPhase(instance)">
-                <span v-if="!dataInstances[instanceIndex].isinbuildingModelPhase"> Go To building phase</span>
-                <span v-if="dataInstances[instanceIndex].isinbuildingModelPhase"> Go back to data processing and
-                  engineering</span>
-              </button>
 
-            </div>
 
-            
-
+          
 
             <DataProcessingWorkflow :workflows="instance.workflow" @workflow-action="handleWorkflowAction" @execute-workflows="(workflows) => handleExecuteWorkflows(workflows, instance)"  
             @update:workflows="(workflows) => updateWorkflow(workflows, instance)"  />
@@ -169,7 +175,13 @@
 
   </div>
 
+  <Dialog v-model:visible= "showErrorModal" @close="showErrorModal = false">
+          <h2>Error</h2>
 
+          <p> {{ errorMessage }}</p>
+
+          <button class="btn btn-danger" @click="showErrorModal = false">Close</button>
+      </Dialog>
 
 
 
@@ -212,19 +224,19 @@ export default {
       uploadSuccess: false,
       uploadError: '',
       csvData: [],
-      displayedRows: [],
+      columnsTodelete:[],
       rowsPerPage: 5,
-      currentPage: 1,
       dataInstances: [],
       loading: false,
       creatingInstance: false,
-      currentModelView: "ml", // 
       instanceParent: [],
       currentDataTypes: {}, // New property to store data types for the new instance
       instanceName: "",
+      showErrorModal:false,
       parsing: false,
-      showErrorModal: false, // New property for error modal visibility
       errorMessage: '', // New property for error message
+      dataloadView: false,
+      allowedDataTypes: [ "string", "numeric", "categorical", "numeric binary", "categorical binary"],
 
       
     };
@@ -249,9 +261,7 @@ export default {
     dropMessage() {
       return 'Drag & Drop a CSV file here';
     },
-    totalRows() {
-      return this.csvData.length > 0 ? this.csvData.length - 1 : 0;
-    }, 
+
     
 
     
@@ -259,13 +269,19 @@ export default {
   methods: {
 
     handleFileChange(event) {
+      console.log("sss")
+
       const selectedFile = event.target.files[0];
       this.handleFile(selectedFile);
+      console.log(this.dataInstances)
+
     },
     handleFileDrop(event) {
+      console.log("sss")
       event.preventDefault();
       const droppedFile = event.dataTransfer.files[0];
       this.handleFile(droppedFile);
+      console.log(this.dataInstances)
     },
     async handleFile(file) {
       if (file && file.type === 'text/csv') {
@@ -278,6 +294,8 @@ export default {
         this.uploadError = 'Please choose a valid CSV file.';
       }
       this.parsing = false;
+      this.dataloadView = true
+
     },
     readCSV(file) {
       const reader = new FileReader();
@@ -293,13 +311,11 @@ export default {
       const data = rows.slice(1).map(row => row.split(','));
 
       const dataTypes = this.determineDataTypes(data, headers);
-      this.csvDataTypes = dataTypes; // Store data types
 
       this.csvData = [headers, ...data];
       this.dataInstances = [];
       this.instanceParent = [];
       this.createNewInstance({ data: this.csvData, name: "original", dataTypes });
-      this.displayedRows = this.csvData.slice(1, this.rowsPerPage + 1);
       setTimeout(() => {
         this.uploadSuccess = true;
 
@@ -309,7 +325,7 @@ export default {
       }, 1);
     },
     determineDataTypeForColumn(data, columnIndex) {
-      let isNumeric = true;
+      let numeric = true;
       const uniqueValues = new Set();
 
       data.forEach(row => {
@@ -322,14 +338,14 @@ export default {
           uniqueValues.add(trimmedValue);
 
           if (isNaN(trimmedValue) || trimmedValue === '') {
-            isNumeric = false;
+            numeric = false;
           }
 
 
         } else {
           uniqueValues.add(value);
           if (isNaN(value) || value === null || value === undefined) {
-            isNumeric = false;
+            numeric = false;
           }
 
 
@@ -341,13 +357,13 @@ export default {
 
       const isCategorical = uniqueValues.size/ data.length <0.03
 
-      if (isBinary && isNumeric) {
+      if (isBinary && numeric) {
         return 'numeric binary';
       }
       else if (isBinary  ){
           return 'categorical binary'
       }
-      else if (isNumeric) {
+      else if (numeric) {
         return 'numeric';
       } else if (isCategorical) {
         return 'categorical';
@@ -361,6 +377,7 @@ export default {
         dataTypes[header] = this.determineDataTypeForColumn(data, index);
         this.convertColumnData(data, index, dataTypes[header]);
       });
+      console.log(dataTypes)
       return dataTypes;
     },
 
@@ -377,39 +394,43 @@ export default {
 
 
 
+    deleteColumns(columns, instance) {
+  // Find the indices of the headers to delete
+  const columnIndices = columns.map(column => 
+    Object.keys(instance.data[0]).find(key => instance.data[0][key] === column)
+  ).sort((a, b) => b - a); // Sort in descending order for safe deletion
 
-    updateDataTypesForNewColumns(instance, newColumns, DataType) {
-      
-      newColumns.forEach(column => {
-        instance.dataTypes[column] = DataType;
-        });
-        console.log(instance.dataTypes)
-    
-    },
-
-    loadMoreRows() {
-      this.loading = true;
-      setTimeout(() => {
-        const startIndex = this.currentPage * this.rowsPerPage + 1;
-        const endIndex = startIndex + this.rowsPerPage;
-        if (startIndex < this.csvData.length) {
-          this.displayedRows.push(...this.csvData.slice(startIndex, endIndex));
-          this.currentPage++;
-        }
-        this.loading = false;
-      }, 1000);
-    },
-    loadMoreRowsForInstance(instanceIndex) {
-      this.dataInstances[instanceIndex].loading = true;
-      const instance = this.dataInstances[instanceIndex];
-      const startIndex = instance.currentPage * this.rowsPerPage + 1;
-      const endIndex = startIndex + this.rowsPerPage;
-      if (startIndex < instance.data.length) {
-        instance.displayedRows.push(...instance.data.slice(startIndex, endIndex));
-        instance.currentPage++;
+  // Loop through all rows and delete the found indices
+  for (let i = 0; i < instance.data.length; i++) {
+    columnIndices.forEach(index => {
+      if (index >= 0 && index < instance.data[i].length) {
+        instance.data[i].splice(index, 1);
       }
-      instance.loading = false;
+    });
+  }
+
+  // Delete from dataTypes
+  columns.forEach(column => {
+    delete instance.dataTypes[column];
+  });
+
+  console.log(instance.data);
+  this.dataloadView = false;
+},
+
+
+    updateDataTypes(instance, columnDataTypes) {
+    for (let column in columnDataTypes){
+            instance.dataTypes[column] = columnDataTypes[column];   
+    }
+},
+
+    loadMoreRows(instance) {
+      instance.numdisplayedRows = instance.numdisplayedRows + 20
+
     },
+
+
     columnsWithMissingValues(instance) {
     const columnsWithMissing = [];
     const headers = instance.data[0];
@@ -438,8 +459,7 @@ export default {
       setTimeout(() => {
         this.dataInstances.push({
           data: JSON.parse(JSON.stringify(data)),
-          displayedRows: JSON.parse(JSON.stringify(data.slice(1, this.rowsPerPage + 1))),
-          currentPage: 1,
+          numdisplayedRows: 20,
           totalRows: data.length - 1,
           loading: false,
           name: name,
@@ -462,14 +482,14 @@ export default {
         this.creatingInstance = false;
       }, 1000);
     },
+
+
     confirmDelete(instanceIndex) {
       if (window.confirm('Are you sure you want to delete this instance?')) {
-        this.deleteInstance(instanceIndex);
+        this.dataInstances.splice(instanceIndex, 1);
       }
     },
-    deleteInstance(instanceIndex) {
-      this.dataInstances.splice(instanceIndex, 1);
-    },
+
     addnewMLModel(instanceIndex) {
 
       const models = [
@@ -502,23 +522,29 @@ export default {
 
     isNumeric(value) {
       // Check for null or empty string
-      if (value === null || value === '') {
-        return false;
-      }
+      if (value === null || value === undefined || value === '' ) {
+          return true; // Skip NaNs, nulls, undefined, and empty strings
+          }
+        if (typeof value === 'string') {
+          const trimmedValue = value.trim();
 
-      // Check if the value is a number or can be converted to a number
-      if (!isNaN(value)) {
-        return true;
-      }
+          if (isNaN(trimmedValue) || trimmedValue === '') {
+            return false;
+          }
+
+
+        }
 
       // Otherwise, return false
-      return false;
+      return true;
     },
     showErrorModalWithTimeout(message) {
       this.errorMessage = message;
       this.showErrorModal = true;
+      console.log(this.showErrorModal)
       setTimeout(() => {
         this.showErrorModal = false;
+
       }, 1000); // Hide the modal after 1 second
     },
     changeMetricType(columnName, type, instance) {
@@ -544,82 +570,15 @@ export default {
 
 
       if (!isConvertible) {
+        console.log("Aaaaa")
         this.showErrorModalWithTimeout(`Column ${columnName} cannot be converted to ${type}.`);
-        return;
+        return ;
       }
 
       instance.dataTypes[columnName] = type;
       this.convertColumnData(instance.data.slice(1), colIndex, type);
 
 
-    },
-
-
-    switchmodelzoneview() {
-      if (this.currentModelView === "ml") {
-        this.currentModelView = "stats"
-      } else {
-        this.currentModelView = "ml"
-      }
-    },
-
-
-
-    async scaleColumn(columnName, instance, method, newMin = 0, newMax = 1) {
-      newMin = Number(newMin);
-      newMax = Number(newMax);
-
-      // Validate newMin and newMax
-      if (isNaN(newMin) || isNaN(newMax)) {
-        this.validateMinMax('newMin and newMax must be valid numbers');
-        return;
-      }
-
-      if (newMax <= newMin) {
-        this.showErrorModalWithTimeout('newMax must be greater than newMin');
-        return;
-      }
-
-      const index = instance.data[0].indexOf(columnName)
-      console.log(index)
-
-      const columnData = instance.data.map(row => {
-        return [row[index]] ;
-      })
-
-      const dataToSend = {
-        data: columnData.map(row => ({ columns: row }))
-      };
-
-      const response = await axios.post('/scale', dataToSend, {
-        params: {
-          column_name: columnName,
-          method: method,
-          new_min: newMin,
-          new_max: newMax
-        }
-      });
-
-      const new_headers = this.updateDataFromBackend(instance, response);
-      this.updateDataTypesForNewColumns(instance, new_headers, ["numeric"]);
-      this.shownormalizemodal = false;
-    },
-
-
-
-
-
-
-    handleBuildingPhase(instance) {
-      instance.isinbuildingModelPhase = !instance.isinbuildingModelPhase;
-      instance.MLmodels = [[
-        new LinearRegression(),
-        new LogisticRegression()
-      ]]
-      instance.Statsmodels = [[
-        new LinearRegression(),
-        new LogisticRegression()
-      ]]
     },
 
 
@@ -650,7 +609,7 @@ export default {
 
         // Handle the response as needed, for example, update the instance with the new data
         this.updateDataFromBackend(instance, response);
-        this.updateDataTypesForNewColumns(instance, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
+        this.updateDataTypes(instance, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
 
       } catch (error) {
         console.error('Error:', error);
@@ -770,7 +729,7 @@ export default {
         // Handle the response as needed, for example, update the instance with the new data
         this.updateDataFromBackend_new(instance, response);
         instance.workflow = workflows
-        //this.updateDataTypesForNewColumns(instance, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
+        //this.updateDataTypes(instance, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
 
       } catch (error) {
         console.error('Error:', error);
@@ -794,7 +753,6 @@ export default {
         rows;
       // Update instance data with the new headers and rows
       instance.data = [headers, ...rows];
-      instance.displayedRows = instance.data.slice(1, this.rowsPerPage + 1);
     },
   
 
