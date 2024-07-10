@@ -33,7 +33,7 @@
         <div v-for="(instance, instanceIndex) in dataInstances" :key="instanceIndex" class="instance-container">
           <div class="header">
             <div class="header-content">
-              <Button label="Create New Instance" icon="pi pi-plus"  @click="prepareNewInstance(instance)" :loading="creatingInstance"   style="background-color: #28a745; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"   loadingIcon="pi pi-spinner" />
+              <Button label="Create New Instance" icon="pi pi-plus"  @click="prepareNewInstance(instance)" :loadingNewInstance="creatingInstance"   style="background-color: #28a745; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"   loadingIcon="pi pi-spinner" />
 
               <h3 class="text-center name-small">Name: {{ instance.name }}</h3>
               <Button label="Delete Instance" icon="pi pi-times" @click="confirmDelete(instanceIndex)" style="background-color: #6f42c1; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);" :class="customButtonClass"/>
@@ -49,7 +49,7 @@
           </div>
           <ColumnCreator v-if="creatingNewColumn" :instanceIndex="instanceIndex"
                 :availableColumns="instance.data[0]" :column-types="instance.dataTypes"
-                @close="creatingNewColumn = false" @submit="(data) => wf_createNewColumn(data, instanceIndex)" />
+                @close="creatingNewColumn = false" @submit="(data) => wf_createNewColumn(data, instance)" />
           
           <missingValueHandler v-if ="handlingMissingValues" @close = "handlingMissingValues = false" :availableColumns = "columnsWithMissingValues(instance)" :columntypes="instance.dataTypes" />   
 
@@ -138,7 +138,7 @@
                       <div class="input-item">
                         <p>Min value</p>
                         <input type="number" step="1" value="0" v-model.number="newMin"  @input="validateMinMax" />
-                      </div>
+                     </div>
 
                       <div class="input-item">
                         <p>Max value</p>
@@ -221,23 +221,18 @@ export default {
       shownormalizemodal: false,
       handlingMissingValues: false,
       file: null,
-      uploadSuccess: false,
       uploadError: '',
       csvData: [],
       columnsTodelete:[],
-      rowsPerPage: 5,
       dataInstances: [],
-      loading: false,
+      loadingNewInstance: false,
       creatingInstance: false,
       instanceParent: [],
       currentDataTypes: {}, // New property to store data types for the new instance
-      instanceName: "",
       showErrorModal:false,
       parsing: false,
       errorMessage: '', // New property for error message
       dataloadView: false,
-      allowedDataTypes: [ "string", "numeric", "categorical", "numeric binary", "categorical binary"],
-
       
     };
   },
@@ -317,7 +312,6 @@ export default {
       this.instanceParent = [];
       this.createNewInstance({ data: this.csvData, name: "original", dataTypes });
       setTimeout(() => {
-        this.uploadSuccess = true;
 
         if (this.$refs.fileInput) {
           this.$refs.fileInput.value = '';
@@ -419,10 +413,18 @@ export default {
 },
 
 
-    updateDataTypes(instance, columnDataTypes) {
-    for (let column in columnDataTypes){
-            instance.dataTypes[column] = columnDataTypes[column];   
-    }
+updateDataTypesForNewColumns(instance, newColumns =[]) {
+      const newHeaders = instance.data[0];
+      newHeaders;
+      // Determine data types for new columns only
+      newHeaders.forEach(header => {
+        if (!Object.prototype.hasOwnProperty.call(instance.dataTypes, header) || newColumns.includes(header)) {
+          const colIndex = newHeaders.indexOf(header);
+          instance.dataTypes[header] = this.determineDataTypeForColumn(instance.data.slice(1), colIndex);
+          this.convertColumnData(instance.data.slice(1), colIndex, instance.dataTypes[header]);
+
+        }
+      });
 },
 
     loadMoreRows(instance) {
@@ -461,7 +463,7 @@ export default {
           data: JSON.parse(JSON.stringify(data)),
           numdisplayedRows: 20,
           totalRows: data.length - 1,
-          loading: false,
+          loadingNewInstance: false,
           name: name,
           dataTypes: JSON.parse(JSON.stringify(dataTypes)), // Ensure independent copy
           modelInfo: null,
@@ -490,25 +492,8 @@ export default {
       }
     },
 
-    addnewMLModel(instanceIndex) {
 
-      const models = [
-        new LinearRegression(),
-        new LogisticRegression()
-      ]
-      this.dataInstances[instanceIndex].MLmodels.push(models);
 
-    },
-
-    addnewStatsModel(instanceIndex) { /// neeed to change
-
-      const models = [
-        new LinearRegression(),
-        new LogisticRegression()
-      ]
-      this.dataInstances[instanceIndex].Statsmodels.push(models);
-
-    },
     toggleCollapse(instance) {
       if (instance) {
         instance.isCollapsed = !instance.isCollapsed;
@@ -584,8 +569,8 @@ export default {
 
 
 
-    async handleNewColumnCreation(newColumnCreationMetaData, instanceIndex) {
-      const instance = this.dataInstances[instanceIndex];
+    async handleNewColumnCreation(newColumnCreationMetaData, instance) {
+      console.log(1111111)
 
       const dataToSend = {
         data: instance.data.map(row => ({ columns: row }))
@@ -597,6 +582,7 @@ export default {
         data: dataToSend,
         columnCreationInput: newColumnCreationMetaData
       };
+      console.log(33333333)
 
 
       try {
@@ -606,10 +592,13 @@ export default {
             'Content-Type': 'application/json'
           }
         });
+        console.log(444444444)
+
 
         // Handle the response as needed, for example, update the instance with the new data
         this.updateDataFromBackend(instance, response);
-        this.updateDataTypes(instance, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
+        //this.updateDataTypesForNewColumns(instance, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
+        console.log(555555555)
 
       } catch (error) {
         console.error('Error:', error);
@@ -644,6 +633,7 @@ export default {
         'standardize-column': 'standardize Column'
       };
       const newWorkflow = { title: actionDescriptions[action], description: description, APIdata: APIdata };
+      console.log(instance.workflow)
       instance.workflow.push(newWorkflow);
     },
 
@@ -686,14 +676,13 @@ export default {
     else if (method ==="standardize"){
         this.shownormalizemodal = false;
         this.handleWorkflowSubmission(instance, 'standardize-column', `standardize Column: ${columnName}`);
-
+ 
       }
     },
-    wf_createNewColumn(newColumnCreationMetaData, instanceIndex) {
-      this.handleNewColumnCreation(newColumnCreationMetaData, instanceIndex).then(() => {
+    wf_createNewColumn(newColumnCreationMetaData, instance) {
         this.creatingNewColumn = false;
-        this.handleWorkflowSubmission('create-new-column');
-      });
+        console.log("Sss")
+        this.handleWorkflowSubmission(instance, 'create-new-column', `new Column: ${newColumnCreationMetaData.columnName}` , newColumnCreationMetaData );
     },
 
 
@@ -727,9 +716,8 @@ export default {
         });
 
         // Handle the response as needed, for example, update the instance with the new data
-        this.updateDataFromBackend_new(instance, response);
+        this.updateDataFromBackend(instance, response);
         instance.workflow = workflows
-        //this.updateDataTypes(instance, [newColumnCreationMetaData.columnName]); // Ensure you pass the correct instance index
 
       } catch (error) {
         console.error('Error:', error);
@@ -738,7 +726,7 @@ export default {
 
     },
 
-    updateDataFromBackend_new(instance, response){
+    updateDataFromBackend(instance, response){
 
     
     const updatedData = JSON.parse(response.data.data);
@@ -762,5 +750,5 @@ export default {
 </script>
 
 
-
+ 
 <style src="@/assets/styles.css" scoped></style>

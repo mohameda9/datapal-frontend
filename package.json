@@ -21,14 +21,15 @@
     "primeicons": "^7.0.0",
     "primevue": "^3.53.0",
     "vue": "^3.1.0",
+    "vue-router": "^4.0.13",
     "vue-tables-2": "^2.3.5",
-    "vuedraggable": "^2.24.3"
+    "vuedraggable": "^2.24.3",
+    "vuex": "^4.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",
     "@babel/eslint-parser": "^7.12.16",
     "@vue/cli-plugin-babel": "~5.0.0",
-    "@vue/cli-plugin-eslint": "~5.0.0",
     "@vue/cli-service": "~5.0.0",
     "eslint": "^7.32.0",
     "eslint-plugin-vue": "^8.0.3"

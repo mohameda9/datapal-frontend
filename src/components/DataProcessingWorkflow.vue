@@ -1,6 +1,7 @@
 <template>
     <div class="data-processing-workflow">
       <h2 class="page-title">Workflow History</h2>
+      <h4>{{ index }}</h4>
       <div class="workflow-container">
         <div
           :class="['workflow-item', { executed: workflow.executed }]"
@@ -55,7 +56,8 @@
       workflows: {
         type: Array,
         required: true
-      }
+      },
+      index:{required: true}
     },
     data() {
       return {
@@ -66,21 +68,17 @@
     methods: {
       deleteWorkflow(index) {
         this.localWorkflows.splice(index, 1);
-        this.$emit('update:workflows', this.localWorkflows);
+        console.log("aa")
+        console.log(this.localWorkflows)
+        console.log("ss")
+
+        this.$emit('update:workflows', this.localWorkflows, this.index);
       },
       selectWorkflow(action) {
-        this.$emit('workflow-action', action);
+        this.$emit('workflow-action', action, this.index);
+        console.log("sshsj")
       },
-      addWorkflow(action, data) {
-        const actionDescriptions = {
-          'onehot-encoding': 'One Hot Encoding',
-          'normalize-column': 'Normalize Column',
-          'create-new-column': 'Create New Column'
-        };
-        const newWorkflow = { title: actionDescriptions[action], description: `Action: ${action}`, data, executed: false };
-        this.localWorkflows.push(newWorkflow);
-        this.$emit('update:workflows', this.localWorkflows);
-      },
+
       onDragStart(event, index) {
         this.draggedIndex = index;
       },
@@ -90,17 +88,12 @@
           this.localWorkflows.splice(this.draggedIndex, 1);
           this.localWorkflows.splice(index, 0, draggedItem);
           this.draggedIndex = null;
-          this.$emit('update:workflows', this.localWorkflows);
+          this.$emit('update:workflows', this.localWorkflows, this.index);
         }
       },
       executeWorkflows() {
-        this.localWorkflows.forEach(workflow => {
-          if (!workflow.executed) {
-            // Execute workflow logic here
-            workflow.executed = true;
-          }
-        });
-        this.$emit('execute-workflows', this.localWorkflows);
+
+        this.$emit('execute-workflows', this.localWorkflows, this.index);
       }
     },
     watch: {
