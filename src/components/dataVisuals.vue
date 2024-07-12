@@ -1,0 +1,857 @@
+<template>
+  <div class="dataVisual-container" role="dialog">
+    <div class="dataVisual">
+      <div class="header" @click="toggleCollapse">
+        <h2>Let's analyze!</h2>
+        <span :class="{ 'arrow-down': isCollapsed, 'arrow-up': !isCollapsed }"></span>
+
+        <button @click="deleteComponent">
+          <span class="pi pi-minus"></span>
+        </button>
+      </div>
+
+      <div v-show="!isCollapsed" class="content">
+        <!-- Left Side: Configuration -->
+        <div class="left-panel">
+          <!-- Visual selection -->
+          <div v-if="plots.length > 0">
+            <div class="info-section">
+              <p>Start by selecting a plot type.</p>
+              <div class="dataVisual-list">
+                <button
+                  v-for="(plot, idx) in plots"
+                  :key="idx"
+                  @click="selectPlot(plot)"
+                  :class="{ selected: plot === selectedPlot }"
+                >
+                  {{ plot._name }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Properties selection -->
+          <div class="dataVisual-section">
+            <p>Select properties:</p>
+            <div class="property-list">
+              <div v-for="(property, index) in selectedPlot?._properties" :key="index" class="property-item">
+                <div v-if="index === 0 || (index > 0 && (selectedPlot?._properties[index-1]?.isValid || selectedPlot?._properties[index-1]?.isOptional))">
+                  <div class="property-description">{{ property.desc }}</div>
+                  <div v-if="property.expects === 'variables'" class="property-options">
+                    <CDropdown class="variable-dropdown">
+                      <CDropdownToggle color="primary">
+                        {{ property.value || 'Select a variable' }}
+                      </CDropdownToggle>
+                      <CDropdownMenu>
+                        <CDropdownItem
+                          v-for="(variable, idx) in variables"
+                          :key="idx"
+                          @click="setProperty(index, variable)"
+                        >
+                          {{ variable }}
+                        </CDropdownItem>
+                      </CDropdownMenu>
+                    </CDropdown>
+                  </div>
+                  <div v-if="property.expects === 'values'" class="property-options">
+                    <MultiSelect
+                      v-if="property.name === 'x_values' ? xValues.length > 0 : hueValues.length > 0"
+                      :options="property.name === 'x_values' ? xValues : hueValues"
+                      :model-value="Array.from(property.value)"
+                      @update:model-value="value => setProperty(index, value)"
+                      placeholder="Select values"
+                    />
+                  </div>
+                  <div v-if="property.expects === 'boolean'" class="property-options boolean-property">
+                    <span>{{ property.name }}</span>
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        :checked="property.value"
+                        @change="toggleBooleanProperty(index)"
+                      />
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                  <div v-if="property.expects === 'number'" class="property-options">
+                    <input type="number" v-model.number="property.value" @input="setProperty(index, property.value)" placeholder="Enter number of bins" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit plot button -->
+          <div v-if="canSubmitPlot" class="centered-section">
+            <button @click="submitPlot" class="p-button p-component submit-button" :disabled="isLoading">
+              Submit Plot
+              <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Main Part: Output -->
+        <div class="main-output">
+          <!-- Output section for the chart -->
+          <p v-if="!chartData">Output will be displayed here</p>
+          <div v-if="chartType === 'box'" ref="plotlyChart"></div>
+          <canvas v-else ref="chartCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { nextTick } from 'vue';
+import { CDropdown, CDropdownToggle, CDropdownMenu, CDropdownItem } from '@coreui/vue';
+import MultiSelect from 'primevue/multiselect';
+import { Chart, registerables } from 'chart.js';
+import Plotly from 'plotly.js-dist';
+
+Chart.register(...registerables);
+
+export default {
+  name: 'dataVisuals',
+  components: {
+    CDropdown,
+    CDropdownToggle,
+    CDropdownMenu,
+    CDropdownItem,
+    MultiSelect,
+  },
+  props: {
+    plots: {
+      type: Array,
+      required: true,
+    },
+    variables: {
+      type: Array,
+      default: () => [],
+    },
+    data: {
+      type: Array,
+      required: true,
+    }
+  },
+  data() {
+    return {
+      selectedPlot: null,
+      isCollapsed: false,
+      chartData: null,
+      chartOptions: {},
+      chartType: 'bar',
+      chart: null,
+      isLoading: false,
+    };
+  },
+  computed: {
+    canSubmitPlot() {
+      if (!this.selectedPlot) return false;
+      const allValid = this.selectedPlot._properties.every((property) => property.isValid || property.isOptional);
+      console.log('Can submit plot:', allValid);
+      return allValid;
+    },
+    hueValues() {
+      const hueColumn = this.selectedPlot?._properties.find(prop => prop.name === 'hue')?.value;
+      const columnIndex = this.variables.indexOf(hueColumn);
+      if (columnIndex !== -1) {
+        const uniqueValues = new Set(this.data.slice(1).map(row => row[columnIndex]));
+        return Array.from(uniqueValues);
+      }
+      return [];
+    },
+    xValues() {
+      const xColumn = this.selectedPlot?._properties.find(prop => prop.name === 'x')?.value;
+      const columnIndex = this.variables.indexOf(xColumn);
+      if (columnIndex !== -1) {
+        const uniqueValues = new Set(this.data.slice(1).map(row => row[columnIndex]));
+        return Array.from(uniqueValues);
+      }
+      return [];
+    }
+  },
+  methods: {
+    toggleCollapse() {
+      this.isCollapsed = !this.isCollapsed;
+    },
+    selectPlot(plot) {
+      this.selectedPlot = plot;
+      this.plotUpdated();
+    },
+    setProperty(index, value) {
+      const property = this.selectedPlot._properties[index];
+      if (property.isArray) {
+        property.value = new Set(value);
+      } else {
+        property.value = value;
+      }
+      property.isValid = (property.isArray && property.value.size > 0) || (!property.isArray && value !== null && value !== undefined && value !== '');
+      console.log(`Property set: ${property.name} = `, Array.isArray(property.value) ? Array.from(property.value) : property.value); // Add logging
+      this.plotUpdated();
+    },
+    toggleBooleanProperty(index) {
+      this.selectedPlot._properties[index].value = !this.selectedPlot._properties[index].value;
+      this.plotUpdated();
+    },
+    plotUpdated() {
+      this.$emit('updatePlot', this.selectedPlot);
+    },
+    deleteComponent() {
+      this.$emit('deletePlot');
+    },
+    async submitPlot() {
+      this.isLoading = true;
+      const selectedValues = this.selectedPlot._properties.reduce((acc, property) => {
+        acc[property.name] = property.isArray ? Array.from(property.value) : property.value;
+        return acc;
+      }, {});
+      console.log('Selected Values:', selectedValues);
+
+      // Process the selected values to create chartData
+      this.generateChartData(selectedValues);
+
+      this.$emit('submittingPlot', selectedValues);
+
+      await nextTick(); // Ensure DOM is updated
+
+      this.renderChart();
+      this.isLoading = false;
+    },
+    generateChartData(selectedValues) {
+      const plotType = this.selectedPlot._name.toLowerCase();
+
+      switch (plotType) {
+        case 'histogram':
+          this.chartType = 'bar';
+          this.chartData = this.getHistogramData(selectedValues);
+          this.chartOptions = this.getHistogramOptions(selectedValues);
+          break;
+        case 'barplot':
+          this.chartType = 'bar';
+          this.chartData = this.getBarPlotData(selectedValues);
+          this.chartOptions = this.getBarPlotOptions(selectedValues);
+          break;
+        case 'boxwhiskerplot':
+          this.chartType = 'box';
+          this.chartData = this.getBoxWhiskerPlotData(selectedValues);
+          this.chartOptions = this.getBoxWhiskerPlotOptions(selectedValues);
+          break;
+        // Add more cases here for different plot types
+        default:
+          console.error('Unsupported plot type:', plotType);
+      }
+      console.log('Generated Chart Data:', this.chartData);
+    },
+    getBoxWhiskerPlotData(selectedValues) {
+      const xVariable = selectedValues.x;
+      const yVariable = selectedValues.y;
+      const hueVariable = selectedValues.hue || null;
+      const hueValues = Array.isArray(selectedValues.hue_values) ? selectedValues.hue_values : Array.from(selectedValues.hue_values || []);
+
+      const xIndex = this.variables.indexOf(xVariable);
+      const yIndex = this.variables.indexOf(yVariable);
+      const hueIndex = hueVariable ? this.variables.indexOf(hueVariable) : -1;
+
+      console.log('xVariable:', xVariable);
+      console.log('yVariable:', yVariable);
+      console.log('hueVariable:', hueVariable);
+      console.log('hueValues:', hueValues);
+      console.log('xIndex:', xIndex);
+      console.log('yIndex:', yIndex);
+      console.log('hueIndex:', hueIndex);
+
+      // Extract data rows (excluding headers)
+      const dataRows = this.data.slice(1);
+      const groupedData = dataRows.reduce((acc, row) => {
+        const xValue = row[xIndex];
+        const yValue = Number(row[yIndex]);
+        const hueValue = hueVariable ? row[hueIndex] : null;
+
+        if (!acc[xValue]) {
+          acc[xValue] = {};
+        }
+
+        if (hueVariable) {
+          if (!acc[xValue][hueValue]) {
+            acc[xValue][hueValue] = [];
+          }
+          acc[xValue][hueValue].push(yValue);
+        } else {
+          if (!acc[xValue].total) {
+            acc[xValue].total = [];
+          }
+          acc[xValue].total.push(yValue);
+        }
+
+        return acc;
+      }, {});
+
+      console.log('Grouped Data:', groupedData);
+
+      const labels = Object.keys(groupedData);
+      let traces = [];
+      if (hueVariable) {
+        hueValues.forEach(hueValue => {
+          const trace = {
+            type: 'box',
+            name: hueValue,
+            x: [],
+            y: [],
+            boxpoints: false,  // Do not plot individual data points
+            jitter: 0.5,
+            pointpos: 0,
+            marker: { color: this.getRandomColor() }
+          };
+          labels.forEach(label => {
+            const hueData = groupedData[label][hueValue];
+            if (hueData) {
+              hueData.forEach(y => {
+                trace.x.push(label);
+                trace.y.push(y);
+              });
+            }
+          });
+          traces.push(trace);
+        });
+      } else {
+        const trace = {
+          type: 'box',
+          name: yVariable,
+          x: [],
+          y: [],
+          boxpoints: false,  // Do not plot individual data points
+          jitter: 0.5,
+          pointpos: 0,
+          marker: { color: this.getRandomColor() }
+        };
+        labels.forEach(label => {
+          const totalData = groupedData[label].total;
+          if (totalData) {
+            totalData.forEach(y => {
+              trace.x.push(label);
+              trace.y.push(y);
+            });
+          }
+        });
+        traces.push(trace);
+      }
+
+      console.log('Traces:', traces);
+
+      return traces;
+    },
+    getBoxWhiskerPlotOptions(selectedValues) {
+      return {
+        title: `Box and Whisker Plot of ${selectedValues.y} by ${selectedValues.x}`,
+        xaxis: {
+          title: selectedValues.x,
+        },
+        yaxis: {
+          title: selectedValues.y,
+        },
+        boxmode: 'group',
+        showlegend: selectedValues.hue ? true : false,
+      };
+    },
+    getHistogramData(selectedValues) {
+      const xVariable = selectedValues.x;
+      const numBins = selectedValues.num_bins || this.getDefaultNumBins(selectedValues.x);
+      const hueVariable = selectedValues.hue || null;
+      const hueValues = Array.isArray(selectedValues.hue_values) ? selectedValues.hue_values : Array.from(selectedValues.hue_values || []);
+
+      const xIndex = this.variables.indexOf(xVariable);
+      const hueIndex = hueVariable ? this.variables.indexOf(hueVariable) : -1;
+
+      console.log('xVariable:', xVariable);
+      console.log('numBins:', numBins);
+      console.log('hueVariable:', hueVariable);
+      console.log('hueValues:', hueValues);
+      console.log('xIndex:', xIndex);
+      console.log('hueIndex:', hueIndex);
+
+      // Extract data rows (excluding headers)
+      const dataRows = this.data.slice(1);
+      const allValues = dataRows.map(row => Number(row[xIndex]));
+
+      // Calculate bin size based on the number of bins
+      const minValue = Math.min(...allValues);
+      const maxValue = Math.max(...allValues);
+      const binSize = (maxValue - minValue) / numBins;
+
+      const bins = Array.from({ length: numBins }, (_, i) => ({
+        range: `${(minValue + i * binSize).toFixed(2)} - ${(minValue + (i + 1) * binSize).toFixed(2)}`,
+        count: 0,
+        hueCounts: hueValues.reduce((acc, hue) => {
+          acc[hue] = 0;
+          return acc;
+        }, {})
+      }));
+
+      console.log('Bins:', bins);
+
+      // Fill bins
+      dataRows.forEach(row => {
+        const value = Number(row[xIndex]);
+        const binIndex = Math.min(Math.floor((value - minValue) / binSize), numBins - 1);
+        bins[binIndex].count += 1;
+        if (hueVariable) {
+          const hueValue = row[hueIndex];
+          if (hueValues.includes(hueValue)) {
+            bins[binIndex].hueCounts[hueValue] += 1;
+          }
+        }
+      });
+
+      console.log('Bins after filling:', bins);
+
+      let datasets;
+      if (hueVariable && hueIndex !== -1) {
+        datasets = hueValues.map(hueValue => {
+          return {
+            label: hueValue,
+            data: bins.map(bin => bin.hueCounts[hueValue]),
+            backgroundColor: this.getRandomColor(),
+            borderColor: '#000000', // Border color for each bar
+            borderWidth: 1, // Border width for each bar
+          };
+        });
+      } else {
+        datasets = [{
+          label: xVariable,
+          data: bins.map(bin => bin.count),
+          backgroundColor: this.getRandomColor(),
+          borderColor: '#000000', // Border color for each bar
+          borderWidth: 1, // Border width for each bar
+        }];
+      }
+
+      console.log('Datasets:', datasets);
+
+      return {
+        labels: bins.map(bin => bin.range),
+        datasets: datasets,
+      };
+    },
+    getBarPlotData(selectedValues) {
+  const xVariable = selectedValues.x;
+  const yVariable = selectedValues.y;
+  const hueVariable = selectedValues.hue || null;
+  const hueValues = Array.isArray(selectedValues.hue_values) ? selectedValues.hue_values : Array.from(selectedValues.hue_values || []);
+  const xValuesFilter = Array.isArray(selectedValues.x_values) ? selectedValues.x_values : Array.from(selectedValues.x_values || []);
+
+  const xIndex = this.variables.indexOf(xVariable);
+  const yIndex = this.variables.indexOf(yVariable);
+  const hueIndex = hueVariable ? this.variables.indexOf(hueVariable) : -1;
+
+  console.log('xVariable:', xVariable);
+  console.log('yVariable:', yVariable);
+  console.log('hueVariable:', hueVariable);
+  console.log('hueValues:', hueValues);
+  console.log('xIndex:', xIndex);
+  console.log('yIndex:', yIndex);
+  console.log('hueIndex:', hueIndex);
+  console.log('xValuesFilter:', xValuesFilter);
+
+  // Extract data rows (excluding headers)
+  const dataRows = this.data.slice(1).filter(row => xValuesFilter.length === 0 || xValuesFilter.includes(row[xIndex]));
+  const groupedData = dataRows.reduce((acc, row) => {
+    const xValue = row[xIndex];
+    const yValue = Number(row[yIndex]);
+    const hueValue = hueVariable ? row[hueIndex] : null;
+
+    if (!acc[xValue]) {
+      acc[xValue] = {};
+    }
+
+    if (hueVariable) {
+      if (!acc[xValue][hueValue]) {
+        acc[xValue][hueValue] = { sum: 0, count: 0 };
+      }
+      acc[xValue][hueValue].sum += yValue;
+      acc[xValue][hueValue].count += 1;
+    } else {
+      if (!acc[xValue].total) {
+        acc[xValue].total = { sum: 0, count: 0 };
+      }
+      acc[xValue].total.sum += yValue;
+      acc[xValue].total.count += 1;
+    }
+
+    return acc;
+  }, {});
+
+  console.log('Grouped Data:', groupedData);
+
+  const labels = Object.keys(groupedData);
+  let datasets;
+  if (hueVariable) {
+    datasets = hueValues.map(hueValue => {
+      return {
+        label: `${hueVariable}: ${hueValue}`,
+        data: labels.map(label => {
+          const hueData = groupedData[label][hueValue];
+          return hueData ? hueData.sum / hueData.count : 0;
+        }),
+        backgroundColor: this.getRandomColor(),
+        borderColor: '#000000', // Border color for each bar
+        borderWidth: 1, // Border width for each bar
+      };
+    });
+  } else {
+    datasets = [{
+      label: yVariable,
+      data: labels.map(label => {
+        const totalData = groupedData[label].total;
+        return totalData ? totalData.sum / totalData.count : 0;
+      }),
+      backgroundColor: this.getRandomColor(),
+      borderColor: '#000000', // Border color for each bar
+      borderWidth: 1, // Border width for each bar
+    }];
+  }
+
+  console.log('Datasets:', datasets);
+
+  return {
+    labels: labels,
+    datasets: datasets,
+  };
+},
+
+getBarPlotOptions(selectedValues) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: selectedValues.x,
+        },
+        stacked: false,
+      },
+      y: {
+        title: {
+          display: true,
+          text: `Mean of ${selectedValues.y}`,
+        },
+        stacked: false,
+      },
+    },
+    plugins: {
+      legend: {
+        display: selectedValues.hue ? true : false,
+        labels: {
+          generateLabels: (chart) => {
+            const datasets = chart.data.datasets;
+            return datasets.map((dataset, index) => ({
+              text: dataset.label,
+              fillStyle: dataset.backgroundColor,
+              hidden: !chart.isDatasetVisible(index),
+              lineCap: dataset.borderCapStyle,
+              lineDash: dataset.borderDash,
+              lineDashOffset: dataset.borderDashOffset,
+              lineJoin: dataset.borderJoinStyle,
+              strokeStyle: dataset.borderColor,
+              pointStyle: dataset.pointStyle,
+              rotation: 0,
+            }));
+          },
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function(tooltipItem) {
+            const dataset = tooltipItem.dataset;
+            const label = dataset.label || '';
+            return `${label}: ${tooltipItem.raw}`;
+          },
+        },
+      },
+    },
+  };
+}
+,
+    getHistogramOptions(selectedValues) {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: selectedValues.x,
+            },
+            stacked: true,
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Frequency',
+            },
+            stacked: true,
+          },
+        },
+        plugins: {
+          legend: {
+            display: selectedValues.hue ? true : false,
+          },
+        },
+        barPercentage: 1.0,
+        categoryPercentage: 1.0,
+      };
+    },
+    getBarPlotOptions(selectedValues) {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: selectedValues.x,
+            },
+            stacked: false,
+          },
+          y: {
+            title: {
+              display: true,
+              text: `Mean of ${selectedValues.y}`,
+            },
+            stacked: false,
+          },
+        },
+        plugins: {
+          legend: {
+            display: selectedValues.hue ? true : false,
+          },
+        },
+      };
+    },
+    getDefaultNumBins(xVariable) {
+      const dataLength = this.data.length - 1; // Exclude header row
+      return Math.ceil(Math.sqrt(dataLength)); // Example: Square root choice for bins
+    },
+    getRandomColor() {
+      const letters = '0123456789ABCDEF';
+      let color = '#';
+      for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    },
+    renderChart() {
+      if (this.chart) {
+        this.chart.destroy();
+      }
+      if (this.chartType === 'box') {
+        Plotly.newPlot(this.$refs.plotlyChart, this.chartData, this.chartOptions);
+      } else {
+        const ctx = this.$refs.chartCanvas.getContext('2d');
+        this.chart = new Chart(ctx, {
+          type: this.chartType,
+          data: this.chartData,
+          options: this.chartOptions,
+        });
+      }
+    }
+  }
+};
+</script>
+
+
+<style scoped>
+.dataVisual-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  font-family: Arial, sans-serif;
+}
+
+.dataVisual {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  margin: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px;
+  cursor: pointer;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+.header .pi {
+  font-size: 1.2em;
+}
+
+.header .arrow-down:before {
+  content: '▼';
+}
+
+.header .arrow-up:before {
+  content: '▲';
+}
+
+.header button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+}
+
+.content {
+  display: flex;
+}
+
+.left-panel {
+  width: 300px;
+  padding: 20px;
+  border-right: 1px solid #eee;
+  background-color: #f8f9fa;
+}
+
+.main-output {
+  flex-grow: 1;
+  padding: 20px;
+  background-color: #ffffff;
+}
+
+.dataVisual-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dataVisual-list button {
+  margin: 5px 0;
+  padding: 10px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.dataVisual-list button.selected,
+.dataVisual-list button:hover {
+  background-color: #007bff;
+  color: #fff;
+  border-color: #007bff;
+}
+
+.property-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.property-item {
+  margin-bottom: 15px;
+}
+
+.property-description {
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.property-options {
+  display: flex;
+  flex-direction: column;
+}
+
+.variable-dropdown {
+  width: 100%;
+}
+
+.boolean-property {
+  display: flex;
+  align-items: center;
+}
+
+.boolean-property .switch {
+  margin-left: 10px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: '';
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #2196f3;
+}
+
+input:checked + .slider:before {
+  transform: translateX(14px);
+}
+
+.centered-section {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.submit-button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.submit-button:hover {
+  background-color: #0056b3;
+}
+
+.spinner-border {
+  margin-left: 10px;
+}
+</style>

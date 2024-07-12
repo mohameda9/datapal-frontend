@@ -12,9 +12,40 @@
         </div>
       </section>
 
-      <UserDataset v-if="getDataInstances.length > 0 && !dataloadView" :data="getDataInstances[0].data" />
-      
-      <Dialog :visible="dataloadView && dataInstances.length > 0" header="Columns Overview" closable="false" class="data-load-dialog" :style="{ width: '50%', height: 'auto' }" :position="position" :draggable="false">
+      <div v-if="getDataInstances.length > 0 && !dataloadView">
+        <div class="user-dataset-container">
+          <UserDataset :data="getDataInstances[0].data" />
+        </div>
+
+        <div class="plots-container">
+          <div v-for="(plotList, plotIndex) in plots" :key="plotIndex" class="plot-card">
+            <dataVisuals
+              :plots="plotList"
+              :data = "getDataInstances[0].data"
+              :variables="getDataInstances[0].data[0]"
+              @deletePlot="() => removePlotCard(plotIndex)"
+              @updatePlot="plot => { console.log(plot); }"
+              @submittingPlot="handleSubmitPlot"
+            ></dataVisuals>
+          </div>
+        </div>
+
+        <div class="add-plot-container">
+          <button class="add-plot-button" @click="addNewPlotCard">
+            <span class="pi pi-plus"></span>
+          </button>
+        </div>
+      </div>
+
+      <Dialog
+        :visible="dataloadView && dataInstances.length > 0"
+        header="Columns Overview"
+        closable="false"
+        class="data-load-dialog"
+        :style="{ width: '50%', height: 'auto' }"
+        :position="position"
+        :draggable="false"
+      >
         <div class="dialog-content">
           <div v-for="(value, column) in dataInstances[0].dataTypes" :key="column" class="field column-field">
             <Button icon="pi pi-trash" class="delete-button" @click="addColumnToDeleteList(column)" />
@@ -34,9 +65,10 @@
 import ProjectManagerBar from '../components/ProjectManagerBar.vue';
 import UserDataset from '../components/UserDataset.vue';
 import { mapActions, mapGetters } from 'vuex';
-import { createNewInstance } from '@/utils/commonFunctions';
+import { Histogram, BarPlot, BoxWhiskerPlot } from '../classes/Visualization';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
+import dataVisuals from '../components/dataVisuals.vue';
 
 export default {
   name: 'DataUpload_new',
@@ -45,6 +77,7 @@ export default {
     UserDataset,
     Button,
     Dialog,
+    dataVisuals
   },
   data() {
     return {
@@ -52,7 +85,10 @@ export default {
       uploadError: '',
       parsing: false,
       dataloadView: false,
-      columnsTodelete: []
+      columnsTodelete: [],
+      plots: [
+        [new Histogram(), new BarPlot(), new BoxWhiskerPlot()]
+      ],
     };
   },
   computed: {
@@ -98,12 +134,16 @@ export default {
       reader.readAsText(file);
     },
     parseCSV(csv) {
-      const rows = csv.trim().split(/\r?\n/);
-      const headers = rows[0].split(',');
-      const data = rows.slice(1).map(row => row.split(','));
-      const dataTypes = this.determineDataTypes(data, headers);
-      this.createNewInstance({ data: [headers, ...data], name: "original", dataTypes });
-    },
+  const rows = csv.trim().split(/\r?\n/);
+  const headers = rows[0].split(',');
+
+  // Filter out rows with all NaN values
+  const data = rows.slice(1).map(row => row.split(',')).filter(row => !row.every(value => value.trim() === '' || value.trim().toLowerCase() === 'nan'));
+
+  const dataTypes = this.determineDataTypes(data, headers);
+  this.convertNumericColumns(data, dataTypes);
+  this.createNewInstance({ data: [headers, ...data], name: "original", dataTypes });
+  },
     createNewInstance({ data, name, dataTypes }) {
       this.setDataInstances([{
         data: JSON.parse(JSON.stringify(data)),
@@ -143,6 +183,16 @@ export default {
       }
       return numeric ? 'numeric' : 'categorical';
     },
+    convertNumericColumns(data, dataTypes) {
+      for (let i = 0; i < data.length; i++) {
+        for (let j = 0; j < data[i].length; j++) {
+          const header = Object.keys(dataTypes)[j];
+          if (dataTypes[header].includes('numeric')) {
+            data[i][j] = Number(data[i][j]);
+          }
+        }
+      }
+    },
     submitDataUpload() {
       const instance = this.getDataInstances[0];
       this.columnsTodelete.forEach(column => {
@@ -168,7 +218,18 @@ export default {
     cancelDataUpload() {
       this.dataloadView = false;
       this.setDataInstances([]);
-    }
+    },
+    addNewPlotCard() {
+      this.plots.push( [new Histogram(), new BarPlot(), new BoxWhiskerPlot()]
+      );
+    },
+    removePlotCard(index) {
+      this.plots.splice(index, 1);
+    },
+    handleSubmitPlot(selectedValues) {
+      console.log(selectedValues);
+      // Handle the plot submission
+    },
   }
 };
 </script>
@@ -178,13 +239,15 @@ export default {
   background-color: #f9f9f9;
   display: flex;
   justify-content: center;
+  padding: 20px;
 }
 
 .main-content {
-  height: 50%;
-  width: 80%;
+  width: 100%;
   background: #ffffff;
   padding: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
   transition: all 0.3s ease;
 }
 
@@ -196,7 +259,8 @@ export default {
 .upload-card {
   display: flex;
   justify-content: center;
-  width: 50%;
+  align-items: center;
+  width: 100%;
   height: 100px;
   margin: 0 auto;
   border-radius: 12px;
@@ -214,7 +278,7 @@ export default {
 
 .upload-card p {
   margin: 0;
-  font-size: 3.2rem;
+  font-size: 1.2rem;
   color: #4f46e5;
 }
 
@@ -267,5 +331,51 @@ export default {
 
 .delete-button:hover {
   background-color: #cc1f1a;
+}
+
+.user-dataset-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.plots-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.plot-card {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  background-color: #f8f9fa;
+}
+
+.add-plot-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.add-plot-button {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.add-plot-button:hover {
+  background-color: #0056b3;
+  transform: translateY(-3px);
 }
 </style>

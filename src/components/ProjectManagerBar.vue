@@ -49,7 +49,7 @@ export default {
   align-items: center;
   width: 10%; /* Increased width */
   height: 98%;
-  background-color: #d3d3d3;
+  background-color: #e0e7ff;
   color: #2f3640;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), 0 12px 30px rgba(0, 0, 0, 0.15);
   box-sizing: border-box;
@@ -97,7 +97,7 @@ export default {
 }
 
 .menu-item span {
-  font-size: 3.2em; /* Increased text size */
+  font-size: 2.2em; /* Increased text size */
 }
 
 .menu-item:hover {
