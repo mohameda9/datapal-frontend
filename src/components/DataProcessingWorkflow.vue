@@ -1,7 +1,6 @@
 <template>
     <div class="data-processing-workflow">
       <h2 class="page-title">Workflow History</h2>
-      <h4>{{ index }}</h4>
       <div class="workflow-container">
         <div
           :class="['workflow-item', { executed: workflow.executed }]"
@@ -124,6 +123,9 @@
   
   .page-title {
     margin-bottom: 20px;
+    font-size: 100%;
+    font-weight: bold;
+
   }
   
   .workflow-container {
@@ -133,7 +135,6 @@
     justify-content: center;
     gap: 40px;
     width: 100%;
-    max-width: 1200px;
   }
   
   .workflow-item {
@@ -147,8 +148,8 @@
     justify-content: center;
     position: relative;
     transition: background-color 0.3s, box-shadow 0.3s;
-    min-width: 200px;
-    max-width: 250px;
+    width: 10%;
+    height: 100px;
     text-align: center;
     cursor: pointer;
 
@@ -172,7 +173,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2em;
+    font-size: 100%;
     font-weight: bold;
   }
   
@@ -183,13 +184,13 @@
   
   .workflow-content h3 {
     margin: 0;
-    font-size: 1.4em;
+    font-size: 80%;
     color: inherit;
   }
   
   .workflow-content p {
     margin: 10px 0 0;
-    font-size: 1em;
+    font-size: 80%;
     color: inherit;
   }
   

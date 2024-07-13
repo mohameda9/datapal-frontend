@@ -124,8 +124,6 @@ export class BarPlot extends Visualization {
   }
 }
 
-
-
 export class BoxWhiskerPlot extends Visualization {
   constructor() {
     super("BoxWhiskerPlot");
@@ -169,3 +167,30 @@ export class BoxWhiskerPlot extends Visualization {
     );
   }
 }
+
+export class ScatterPlot extends Visualization {
+  constructor() {
+    super("ScatterPlot");
+    this._properties.push(
+      {
+        value: null,
+        isArray: false,
+        expects: "variables",
+        desc: "Select a variable for x-axis",
+        name: "x",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variables",
+        desc: "Select a variable for y-axis",
+        name: "y",
+        isValid: false,
+        isOptional: false,
+      }
+    );
+  }
+}
+

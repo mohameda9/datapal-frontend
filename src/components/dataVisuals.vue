@@ -2,10 +2,9 @@
   <div class="dataVisual-container" role="dialog">
     <div class="dataVisual">
       <div class="header" @click="toggleCollapse">
-        <h2>Let's analyze!</h2>
+        <h2> </h2>
         <span :class="{ 'arrow-down': isCollapsed, 'arrow-up': !isCollapsed }"></span>
-
-        <button @click="deleteComponent">
+        <button @click="deleteComponent" class="delete-button">
           <span class="pi pi-minus"></span>
         </button>
       </div>
@@ -44,7 +43,7 @@
                       </CDropdownToggle>
                       <CDropdownMenu>
                         <CDropdownItem
-                          v-for="(variable, idx) in variables"
+                          v-for="(variable, idx) in getColumnOptions(property)"
                           :key="idx"
                           @click="setProperty(index, variable)"
                         >
@@ -93,9 +92,9 @@
         <!-- Main Part: Output -->
         <div class="main-output">
           <!-- Output section for the chart -->
-          <p v-if="!chartData">Output will be displayed here</p>
-          <div v-if="chartType === 'box'" ref="plotlyChart"></div>
-          <canvas v-else ref="chartCanvas"></canvas>
+          <p v-if="!chartData" class="output-placeholder">Output will be displayed here</p>
+          <div v-if="chartType === 'box'" ref="plotlyChart" class="chart-container"></div>
+          <canvas v-else ref="chartCanvas" class="chart-container"></canvas>
         </div>
       </div>
     </div>
@@ -130,6 +129,14 @@ export default {
       default: () => [],
     },
     data: {
+      type: Array,
+      required: true,
+    },
+    numericalColumns: {
+      type: Array,
+      required: true,
+    },
+    categoricalColumns: {
       type: Array,
       required: true,
     }
@@ -187,6 +194,18 @@ export default {
         property.value = value;
       }
       property.isValid = (property.isArray && property.value.size > 0) || (!property.isArray && value !== null && value !== undefined && value !== '');
+      
+      // Automatically select all unique values in the hue column if the hue property is set
+      if (property.name === 'hue' && property.isValid) {
+        const hueIndex = this.variables.indexOf(value);
+        const uniqueValues = new Set(this.data.slice(1).map(row => row[hueIndex]));
+        const hueValuesProperty = this.selectedPlot._properties.find(prop => prop.name === 'hue_values');
+        if (hueValuesProperty) {
+          hueValuesProperty.value = new Set(uniqueValues);
+          hueValuesProperty.isValid = true;
+        }
+      }
+      
       console.log(`Property set: ${property.name} = `, Array.isArray(property.value) ? Array.from(property.value) : property.value); // Add logging
       this.plotUpdated();
     },
@@ -218,6 +237,24 @@ export default {
       this.renderChart();
       this.isLoading = false;
     },
+    getColumnOptions(property) {
+      if (property.expects === 'variables') {
+        if (this.selectedPlot._name === 'BarPlot' || this.selectedPlot._name === 'BoxWhiskerPlot') {
+          if (property.name === 'x' || property.name === 'hue') {
+            return this.categoricalColumns;
+          } else if (property.name === 'y') {
+            return this.numericalColumns;
+          }
+        } else if (this.selectedPlot._name === 'Histogram' || this.selectedPlot._name === 'ScatterPlot') {
+          if (property.name === 'x' || property.name === 'y') {
+            return this.numericalColumns;
+          } else if (property.name === 'hue') {
+            return this.categoricalColumns;
+          }
+        }
+      }
+      return [];
+    },
     generateChartData(selectedValues) {
       const plotType = this.selectedPlot._name.toLowerCase();
 
@@ -237,7 +274,11 @@ export default {
           this.chartData = this.getBoxWhiskerPlotData(selectedValues);
           this.chartOptions = this.getBoxWhiskerPlotOptions(selectedValues);
           break;
-        // Add more cases here for different plot types
+        case 'scatterplot':
+          this.chartType = 'scatter';
+          this.chartData = this.getScatterPlotData(selectedValues);
+          this.chartOptions = this.getScatterPlotOptions(selectedValues);
+          break;
         default:
           console.error('Unsupported plot type:', plotType);
       }
@@ -261,9 +302,7 @@ export default {
       console.log('yIndex:', yIndex);
       console.log('hueIndex:', hueIndex);
 
-      // Extract data rows (excluding headers)
-      const dataRows = this.data.slice(1);
-      const groupedData = dataRows.reduce((acc, row) => {
+      const groupedData = this.data.slice(1).reduce((acc, row) => {
         const xValue = row[xIndex];
         const yValue = Number(row[yIndex]);
         const hueValue = hueVariable ? row[hueIndex] : null;
@@ -298,7 +337,7 @@ export default {
             name: hueValue,
             x: [],
             y: [],
-            boxpoints: false,  // Do not plot individual data points
+            boxpoints: false,
             jitter: 0.5,
             pointpos: 0,
             marker: { color: this.getRandomColor() }
@@ -320,7 +359,7 @@ export default {
           name: yVariable,
           x: [],
           y: [],
-          boxpoints: false,  // Do not plot individual data points
+          boxpoints: false,
           jitter: 0.5,
           pointpos: 0,
           marker: { color: this.getRandomColor() }
@@ -370,11 +409,8 @@ export default {
       console.log('xIndex:', xIndex);
       console.log('hueIndex:', hueIndex);
 
-      // Extract data rows (excluding headers)
-      const dataRows = this.data.slice(1);
-      const allValues = dataRows.map(row => Number(row[xIndex]));
+      const allValues = this.data.slice(1).map(row => Number(row[xIndex]));
 
-      // Calculate bin size based on the number of bins
       const minValue = Math.min(...allValues);
       const maxValue = Math.max(...allValues);
       const binSize = (maxValue - minValue) / numBins;
@@ -390,8 +426,7 @@ export default {
 
       console.log('Bins:', bins);
 
-      // Fill bins
-      dataRows.forEach(row => {
+      this.data.slice(1).forEach(row => {
         const value = Number(row[xIndex]);
         const binIndex = Math.min(Math.floor((value - minValue) / binSize), numBins - 1);
         bins[binIndex].count += 1;
@@ -412,8 +447,8 @@ export default {
             label: hueValue,
             data: bins.map(bin => bin.hueCounts[hueValue]),
             backgroundColor: this.getRandomColor(),
-            borderColor: '#000000', // Border color for each bar
-            borderWidth: 1, // Border width for each bar
+            borderColor: '#000000',
+            borderWidth: 1,
           };
         });
       } else {
@@ -421,8 +456,8 @@ export default {
           label: xVariable,
           data: bins.map(bin => bin.count),
           backgroundColor: this.getRandomColor(),
-          borderColor: '#000000', // Border color for each bar
-          borderWidth: 1, // Border width for each bar
+          borderColor: '#000000',
+          borderWidth: 1,
         }];
       }
 
@@ -434,145 +469,141 @@ export default {
       };
     },
     getBarPlotData(selectedValues) {
-  const xVariable = selectedValues.x;
-  const yVariable = selectedValues.y;
-  const hueVariable = selectedValues.hue || null;
-  const hueValues = Array.isArray(selectedValues.hue_values) ? selectedValues.hue_values : Array.from(selectedValues.hue_values || []);
-  const xValuesFilter = Array.isArray(selectedValues.x_values) ? selectedValues.x_values : Array.from(selectedValues.x_values || []);
+      const xVariable = selectedValues.x;
+      const yVariable = selectedValues.y;
+      const hueVariable = selectedValues.hue || null;
+      const hueValues = Array.isArray(selectedValues.hue_values) ? selectedValues.hue_values : Array.from(selectedValues.hue_values || []);
+      const xValuesFilter = Array.isArray(selectedValues.x_values) ? selectedValues.x_values : Array.from(selectedValues.x_values || []);
 
-  const xIndex = this.variables.indexOf(xVariable);
-  const yIndex = this.variables.indexOf(yVariable);
-  const hueIndex = hueVariable ? this.variables.indexOf(hueVariable) : -1;
+      const xIndex = this.variables.indexOf(xVariable);
+      const yIndex = this.variables.indexOf(yVariable);
+      const hueIndex = hueVariable ? this.variables.indexOf(hueVariable) : -1;
 
-  console.log('xVariable:', xVariable);
-  console.log('yVariable:', yVariable);
-  console.log('hueVariable:', hueVariable);
-  console.log('hueValues:', hueValues);
-  console.log('xIndex:', xIndex);
-  console.log('yIndex:', yIndex);
-  console.log('hueIndex:', hueIndex);
-  console.log('xValuesFilter:', xValuesFilter);
+      console.log('xVariable:', xVariable);
+      console.log('yVariable:', yVariable);
+      console.log('hueVariable:', hueVariable);
+      console.log('hueValues:', hueValues);
+      console.log('xIndex:', xIndex);
+      console.log('yIndex:', yIndex);
+      console.log('hueIndex:', hueIndex);
+      console.log('xValuesFilter:', xValuesFilter);
 
-  // Extract data rows (excluding headers)
-  const dataRows = this.data.slice(1).filter(row => xValuesFilter.length === 0 || xValuesFilter.includes(row[xIndex]));
-  const groupedData = dataRows.reduce((acc, row) => {
-    const xValue = row[xIndex];
-    const yValue = Number(row[yIndex]);
-    const hueValue = hueVariable ? row[hueIndex] : null;
+      const groupedData = this.data.slice(1).filter(row => xValuesFilter.length === 0 || xValuesFilter.includes(row[xIndex])).reduce((acc, row) => {
+        const xValue = row[xIndex];
+        const yValue = Number(row[yIndex]);
+        const hueValue = hueVariable ? row[hueIndex] : null;
 
-    if (!acc[xValue]) {
-      acc[xValue] = {};
-    }
+        if (!acc[xValue]) {
+          acc[xValue] = {};
+        }
 
-    if (hueVariable) {
-      if (!acc[xValue][hueValue]) {
-        acc[xValue][hueValue] = { sum: 0, count: 0 };
+        if (hueVariable) {
+          if (!acc[xValue][hueValue]) {
+            acc[xValue][hueValue] = { sum: 0, count: 0 };
+          }
+          acc[xValue][hueValue].sum += yValue;
+          acc[xValue][hueValue].count += 1;
+        } else {
+          if (!acc[xValue].total) {
+            acc[xValue].total = { sum: 0, count: 0 };
+          }
+          acc[xValue].total.sum += yValue;
+          acc[xValue].total.count += 1;
+        }
+
+        return acc;
+      }, {});
+
+      console.log('Grouped Data:', groupedData);
+
+      const labels = Object.keys(groupedData);
+      let datasets;
+      if (hueVariable) {
+        datasets = hueValues.map(hueValue => {
+          return {
+            label: `${hueVariable}: ${hueValue}`,
+            data: labels.map(label => {
+              const hueData = groupedData[label][hueValue];
+              return hueData ? hueData.sum / hueData.count : 0;
+            }),
+            backgroundColor: this.getRandomColor(),
+            borderColor: '#000000',
+            borderWidth: 1,
+          };
+        });
+      } else {
+        datasets = [{
+          label: yVariable,
+          data: labels.map(label => {
+            const totalData = groupedData[label].total;
+            return totalData ? totalData.sum / totalData.count : 0;
+          }),
+          backgroundColor: this.getRandomColor(),
+          borderColor: '#000000',
+          borderWidth: 1,
+        }];
       }
-      acc[xValue][hueValue].sum += yValue;
-      acc[xValue][hueValue].count += 1;
-    } else {
-      if (!acc[xValue].total) {
-        acc[xValue].total = { sum: 0, count: 0 };
-      }
-      acc[xValue].total.sum += yValue;
-      acc[xValue].total.count += 1;
-    }
 
-    return acc;
-  }, {});
+      console.log('Datasets:', datasets);
 
-  console.log('Grouped Data:', groupedData);
-
-  const labels = Object.keys(groupedData);
-  let datasets;
-  if (hueVariable) {
-    datasets = hueValues.map(hueValue => {
       return {
-        label: `${hueVariable}: ${hueValue}`,
-        data: labels.map(label => {
-          const hueData = groupedData[label][hueValue];
-          return hueData ? hueData.sum / hueData.count : 0;
-        }),
-        backgroundColor: this.getRandomColor(),
-        borderColor: '#000000', // Border color for each bar
-        borderWidth: 1, // Border width for each bar
+        labels: labels,
+        datasets: datasets,
       };
-    });
-  } else {
-    datasets = [{
-      label: yVariable,
-      data: labels.map(label => {
-        const totalData = groupedData[label].total;
-        return totalData ? totalData.sum / totalData.count : 0;
-      }),
-      backgroundColor: this.getRandomColor(),
-      borderColor: '#000000', // Border color for each bar
-      borderWidth: 1, // Border width for each bar
-    }];
-  }
-
-  console.log('Datasets:', datasets);
-
-  return {
-    labels: labels,
-    datasets: datasets,
-  };
-},
-
-getBarPlotOptions(selectedValues) {
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: {
-        title: {
-          display: true,
-          text: selectedValues.x,
-        },
-        stacked: false,
-      },
-      y: {
-        title: {
-          display: true,
-          text: `Mean of ${selectedValues.y}`,
-        },
-        stacked: false,
-      },
     },
-    plugins: {
-      legend: {
-        display: selectedValues.hue ? true : false,
-        labels: {
-          generateLabels: (chart) => {
-            const datasets = chart.data.datasets;
-            return datasets.map((dataset, index) => ({
-              text: dataset.label,
-              fillStyle: dataset.backgroundColor,
-              hidden: !chart.isDatasetVisible(index),
-              lineCap: dataset.borderCapStyle,
-              lineDash: dataset.borderDash,
-              lineDashOffset: dataset.borderDashOffset,
-              lineJoin: dataset.borderJoinStyle,
-              strokeStyle: dataset.borderColor,
-              pointStyle: dataset.pointStyle,
-              rotation: 0,
-            }));
+    getBarPlotOptions(selectedValues) {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: selectedValues.x,
+            },
+            stacked: false,
+          },
+          y: {
+            title: {
+              display: true,
+              text: `Mean of ${selectedValues.y}`,
+            },
+            stacked: false,
           },
         },
-      },
-      tooltip: {
-        callbacks: {
-          label: function(tooltipItem) {
-            const dataset = tooltipItem.dataset;
-            const label = dataset.label || '';
-            return `${label}: ${tooltipItem.raw}`;
+        plugins: {
+          legend: {
+            display: selectedValues.hue ? true : false,
+            labels: {
+              generateLabels: (chart) => {
+                const datasets = chart.data.datasets;
+                return datasets.map((dataset, index) => ({
+                  text: dataset.label,
+                  fillStyle: dataset.backgroundColor,
+                  hidden: !chart.isDatasetVisible(index),
+                  lineCap: dataset.borderCapStyle,
+                  lineDash: dataset.borderDash,
+                  lineDashOffset: dataset.borderDashOffset,
+                  lineJoin: dataset.borderJoinStyle,
+                  strokeStyle: dataset.borderColor,
+                  pointStyle: dataset.pointStyle,
+                  rotation: 0,
+                }));
+              },
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label: function(tooltipItem) {
+                const dataset = tooltipItem.dataset;
+                const label = dataset.label || '';
+                return `${label}: ${tooltipItem.raw}`;
+              },
+            },
           },
         },
-      },
+      };
     },
-  };
-}
-,
     getHistogramOptions(selectedValues) {
       return {
         responsive: true,
@@ -602,7 +633,34 @@ getBarPlotOptions(selectedValues) {
         categoryPercentage: 1.0,
       };
     },
-    getBarPlotOptions(selectedValues) {
+    getScatterPlotData(selectedValues) {
+      const xVariable = selectedValues.x;
+      const yVariable = selectedValues.y;
+
+      const xIndex = this.variables.indexOf(xVariable);
+      const yIndex = this.variables.indexOf(yVariable);
+
+      console.log('xVariable:', xVariable);
+      console.log('yVariable:', yVariable);
+      console.log('xIndex:', xIndex);
+      console.log('yIndex:', yIndex);
+
+      const xValues = this.data.slice(1).map(row => Number(row[xIndex]));
+      const yValues = this.data.slice(1).map(row => Number(row[yIndex]));
+
+      return {
+        labels: xValues,
+        datasets: [{
+          label: `${yVariable} vs ${xVariable}`,
+          data: xValues.map((x, i) => ({ x, y: yValues[i] })),
+          backgroundColor: this.getRandomColor(),
+          borderColor: '#000000',
+          borderWidth: 1,
+          pointRadius: 5,
+        }],
+      };
+    },
+    getScatterPlotOptions(selectedValues) {
       return {
         responsive: true,
         maintainAspectRatio: false,
@@ -612,26 +670,24 @@ getBarPlotOptions(selectedValues) {
               display: true,
               text: selectedValues.x,
             },
-            stacked: false,
           },
           y: {
             title: {
               display: true,
-              text: `Mean of ${selectedValues.y}`,
+              text: selectedValues.y,
             },
-            stacked: false,
           },
         },
         plugins: {
           legend: {
-            display: selectedValues.hue ? true : false,
+            display: true,
           },
         },
       };
     },
     getDefaultNumBins(xVariable) {
-      const dataLength = this.data.length - 1; // Exclude header row
-      return Math.ceil(Math.sqrt(dataLength)); // Example: Square root choice for bins
+      const dataLength = this.data.length - 1;
+      return Math.ceil(Math.sqrt(dataLength));
     },
     getRandomColor() {
       const letters = '0123456789ABCDEF';
@@ -660,40 +716,44 @@ getBarPlotOptions(selectedValues) {
 };
 </script>
 
+<style>
 
-<style scoped>
 .dataVisual-container {
   display: flex;
   flex-direction: column;
   width: 100%;
-  font-family: Arial, sans-serif;
+  font-family: 'Roboto', sans-serif;
 }
 
 .dataVisual {
   display: flex;
   flex-direction: column;
-  border: 1px solid #ccc;
-  border-radius: 10px;
+  border: 1px solid #ddd;
+  border-radius: 15px;
   margin: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  background-color: #fff;
+  background-color: #f9f9f9;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #007bff;
-  color: #fff;
-  padding: 10px;
+  padding: 15px;
   cursor: pointer;
-  border-top-left-radius: 10px;
-  border-top-right-radius: 10px;
+  border-top-left-radius: 15px;
+  border-top-right-radius: 15px;
+  background-color: #0e2962;
+
+}
+
+.header:hover {
+  background-color: #92a6d1;
 }
 
 .header h2 {
   margin: 0;
-  font-size: 1.2em;
+  font-size: 1.5em;
 }
 
 .header .pi {
@@ -708,7 +768,7 @@ getBarPlotOptions(selectedValues) {
   content: '▲';
 }
 
-.header button {
+.header .delete-button {
   background: none;
   border: none;
   cursor: pointer;
@@ -720,10 +780,10 @@ getBarPlotOptions(selectedValues) {
 }
 
 .left-panel {
-  width: 300px;
+  width: 30%;
   padding: 20px;
   border-right: 1px solid #eee;
-  background-color: #f8f9fa;
+  background-color: #ffffff;
 }
 
 .main-output {
@@ -741,17 +801,19 @@ getBarPlotOptions(selectedValues) {
   margin: 5px 0;
   padding: 10px;
   border: 1px solid #ccc;
-  background-color: #fff;
+  background-color: #e0f2fe;
   cursor: pointer;
-  border-radius: 5px;
-  transition: background-color 0.3s ease;
+  border-radius: 8px;
+  transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .dataVisual-list button.selected,
 .dataVisual-list button:hover {
-  background-color: #007bff;
+  background-color: #a6bfe6;
   color: #fff;
-  border-color: #007bff;
+  border-color: #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .property-list {
@@ -824,7 +886,7 @@ getBarPlotOptions(selectedValues) {
 }
 
 input:checked + .slider {
-  background-color: #2196f3;
+  background-color: #3b82f6;
 }
 
 input:checked + .slider:before {
@@ -839,19 +901,33 @@ input:checked + .slider:before {
 
 .submit-button {
   padding: 10px 20px;
-  background-color: #007bff;
+  background-color: #3b82f6;
   color: white;
   border: none;
   cursor: pointer;
-  border-radius: 5px;
-  transition: background-color 0.3s ease;
+  border-radius: 8px;
+  transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .submit-button:hover {
-  background-color: #0056b3;
+  background-color: #6d7d9f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .spinner-border {
   margin-left: 10px;
 }
+
+.output-placeholder {
+  color: #888;
+  font-size: 1.2em;
+  text-align: center;
+}
+
+.chart-container {
+  width: 100%;
+  height: 400px;
+}
+
 </style>

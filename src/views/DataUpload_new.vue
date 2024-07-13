@@ -1,5 +1,5 @@
 <template>
-  <div class="main-layout">
+  <div class="main-layouttt">
     <div class="main-content">
       <section id="data-upload">
         <div class="upload-card" @dragover.prevent @dragenter.prevent @drop="handleFileDrop" @click="$refs.fileInput.click()">
@@ -21,7 +21,9 @@
           <div v-for="(plotList, plotIndex) in plots" :key="plotIndex" class="plot-card">
             <dataVisuals
               :plots="plotList"
-              :data = "getDataInstances[0].data"
+              :data="getDataInstances[0].data"
+              :numericalColumns="numericalColumns"
+              :categoricalColumns="categoricalColumns"
               :variables="getDataInstances[0].data[0]"
               @deletePlot="() => removePlotCard(plotIndex)"
               @updatePlot="plot => { console.log(plot); }"
@@ -65,10 +67,11 @@
 import ProjectManagerBar from '../components/ProjectManagerBar.vue';
 import UserDataset from '../components/UserDataset.vue';
 import { mapActions, mapGetters } from 'vuex';
-import { Histogram, BarPlot, BoxWhiskerPlot } from '../classes/Visualization';
+import { Histogram, BarPlot, BoxWhiskerPlot, ScatterPlot } from '../classes/Visualization';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import dataVisuals from '../components/dataVisuals.vue';
+import { getColumnNamesByType } from '../utils/commonFunctions';
 
 export default {
   name: 'DataUpload_new',
@@ -87,8 +90,10 @@ export default {
       dataloadView: false,
       columnsTodelete: [],
       plots: [
-        [new Histogram(), new BarPlot(), new BoxWhiskerPlot()]
+        [new Histogram(), new BarPlot(), new BoxWhiskerPlot(), new ScatterPlot()]
       ],
+      numericalColumns: [],
+      categoricalColumns: [],
     };
   },
   computed: {
@@ -134,20 +139,20 @@ export default {
       reader.readAsText(file);
     },
     parseCSV(csv) {
-  const rows = csv.trim().split(/\r?\n/);
-  const headers = rows[0].split(',');
+      const rows = csv.trim().split(/\r?\n/);
+      const headers = rows[0].split(',');
 
-  // Filter out rows with all NaN values
-  const data = rows.slice(1).map(row => row.split(',')).filter(row => !row.every(value => value.trim() === '' || value.trim().toLowerCase() === 'nan'));
-
-  const dataTypes = this.determineDataTypes(data, headers);
-  this.convertNumericColumns(data, dataTypes);
-  this.createNewInstance({ data: [headers, ...data], name: "original", dataTypes });
-  },
+      const data = rows.slice(1).map(row => row.split(',').map(value => value === '' ? NaN : value));
+      console.log(data);
+ 
+      const dataTypes = this.determineDataTypes(data, headers);
+      this.convertNumericColumns(data, dataTypes);
+      this.createNewInstance({ data: [headers, ...data], name: "original", dataTypes });
+    },
     createNewInstance({ data, name, dataTypes }) {
       this.setDataInstances([{
         data: JSON.parse(JSON.stringify(data)),
-        numdisplayedRows: 20,
+        numdisplayedRows: 5,
         totalRows: data.length - 1,
         loadingNewInstance: false,
         name: name,
@@ -160,6 +165,8 @@ export default {
         isinbuildingModelPhase: false,
       }]);
       this.creatingInstance = false;
+      this.numericalColumns = getColumnNamesByType(this.getDataInstances[0], ['numeric', 'numeric binary']);
+      this.categoricalColumns = getColumnNamesByType(this.getDataInstances[0], ['categorical', 'categorical binary']);
     },
     determineDataTypes(data, headers) {
       const dataTypes = {};
@@ -173,7 +180,7 @@ export default {
       const uniqueValues = new Set();
       data.forEach(row => {
         const value = row[columnIndex];
-        if (typeof value === 'string' && isNaN(value.trim())) {
+        if (typeof value === 'string' && isNaN(value.trim()) && value.trim() !== '') {
           numeric = false;
         }
         uniqueValues.add(value);
@@ -187,7 +194,7 @@ export default {
       for (let i = 0; i < data.length; i++) {
         for (let j = 0; j < data[i].length; j++) {
           const header = Object.keys(dataTypes)[j];
-          if (dataTypes[header].includes('numeric')) {
+          if (dataTypes[header].includes('numeric') && data[i][j] !== '') {
             data[i][j] = Number(data[i][j]);
           }
         }
@@ -220,26 +227,23 @@ export default {
       this.setDataInstances([]);
     },
     addNewPlotCard() {
-      this.plots.push( [new Histogram(), new BarPlot(), new BoxWhiskerPlot()]
-      );
+      this.plots.push([new Histogram(), new BarPlot(), new BoxWhiskerPlot(), new ScatterPlot()]);
     },
     removePlotCard(index) {
       this.plots.splice(index, 1);
     },
     handleSubmitPlot(selectedValues) {
       console.log(selectedValues);
-      // Handle the plot submission
     },
   }
 };
 </script>
 
 <style scoped>
-.main-layout {
+.main-layouttt {
   background-color: #f9f9f9;
   display: flex;
   justify-content: center;
-  padding: 20px;
 }
 
 .main-content {
@@ -261,7 +265,7 @@ export default {
   justify-content: center;
   align-items: center;
   width: 100%;
-  height: 100px;
+  height: 30px;
   margin: 0 auto;
   border-radius: 12px;
   background-color: #e0e7ff;
@@ -337,6 +341,7 @@ export default {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
+  height: 500px;
 }
 
 .plots-container {

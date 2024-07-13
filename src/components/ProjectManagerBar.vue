@@ -45,21 +45,18 @@ export default {
 
 .sidebar {
   display: flex;
-  flex-direction: column;
   align-items: center;
   width: 10%; /* Increased width */
-  height: 98%;
+  height: 100%;
   background-color: #e0e7ff;
   color: #2f3640;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), 0 12px 30px rgba(0, 0, 0, 0.15);
   box-sizing: border-box;
   overflow-y: auto;
   position: fixed;
-  top: 1%;
-  left: 0.3%;
+  left: 0%;
   transition: all 0.3s ease;
-  border-radius: 15px;
-  padding: 20px 10px;
+  padding: 20px 0px;
   /* Glowing Effect */
   border: 2px solid #0b0000;
   animation: glowing 1.5s infinite;
@@ -67,7 +64,7 @@ export default {
 
 
 .sidebar .name {
-  font-size: 2.8em; /* Increased font size */
+  font-size: 200%; /* Increased font size */
   margin-bottom: 50px;
   font-weight: 600;
   color: #2f3640;
@@ -84,7 +81,7 @@ export default {
   display: flex;
   align-items: center;
   padding: 20px; /* Increased padding */
-  margin: 20px 0; /* Increased margin */
+  margin: 10px 0; /* Increased margin */
   border-radius: 8px;
   transition: all 0.3s ease;
   color: #2f3640;
@@ -92,12 +89,11 @@ export default {
 }
 
 .menu-item i {
-  font-size: 3em; /* Increased icon size */
-  margin-right: 15px; /* Increased margin */
+  font-size: 100%; /* Increased font size */
 }
 
 .menu-item span {
-  font-size: 2.2em; /* Increased text size */
+  font-size: 100%; /* Increased font size */
 }
 
 .menu-item:hover {

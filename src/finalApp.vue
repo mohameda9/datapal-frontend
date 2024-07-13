@@ -1,10 +1,10 @@
 <template>
-  <div class="main-layout">
-    <CCol class="project-manager-bar" md="{ span: 5 }">
+    <div class="main-layout">
+    <CCol class="project-manager-bar" md="{ span: 2 }">
       <ProjectManagerBar @goDataProcessing="activePage = 'dataProcessing'" @goDataUpload="activePage = 'dataUpload'" />
     </CCol>
 
-    <CCol class="main-container" md="{ span: 9 }">
+    <CCol class="main-container" md="{ span: 2 }">
       <div :style="{ alignItems: 'center' }">
         <div v-show="activePage === 'dataUpload'">
           <DataUpload_new />
@@ -19,7 +19,7 @@
                   icon="pi pi-plus"
                   @click="prepareNewInstance(instanceIndex)"
                   :loadingNewInstance="creatingInstance"
-                  style="font-size: 1.5rem; padding: 1rem 2rem; background-color: #28a745; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"
+                  style="font-size: 0.7rem; padding: 0.5rem 0.5rem; background-color: #28a745; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"
                   loadingIcon="pi pi-spinner"
                 />
                 <h3 class="text-center name-small">Name: {{ instance.name }}</h3>
@@ -27,7 +27,7 @@
                   label="Delete Instance"
                   icon="pi pi-times"
                   @click="confirmDelete(instanceIndex)"
-                  style="font-size: 1.5rem; padding: 1rem 2rem; background-color: #6f42c1; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"
+                  style="font-size: 0.7rem; padding: 0.5rem 0.5rem; background-color: #6f42c1; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"
                   :class="customButtonClass"
                 />
               </div>
@@ -38,13 +38,13 @@
                 label="Create A new Column"
                 icon="pi pi-plus"
                 @click="creatingNewColumn = true"
-                style="font-size: 1.5rem; padding: 1rem 2rem; background-color: #6c757d; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"
+                style="font-size: 0.7rem; padding: 0.5rem 0.5rem; background-color: #6c757d; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"
               />
               <Button
                 label="Handle Missing Values (not Implemented)"
                 icon="pi pi-exclamation-circle"
                 @click="handlingMissingValues = true"
-                style="font-size: 1.5rem; padding: 1rem 2rem; background-color: #6c757d; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"
+                style="font-size: 0.7rem; padding: 0.5rem 0.5rem; background-color: #6c757d; border: none; border-radius: 50px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"
               />
             </div>
             <ColumnCreator
@@ -74,7 +74,6 @@
               <div class="button-center-container">
                 <Dialog v-if="showonehotmodal" visible editable @hide="showonehotmodal = false" :modal="true" header="One hot encoding">
                   <p>Select a categorical column to one hot encode</p>
-                  <p>{{ instanceIndex }}</p>
                   <div class="custom-dropdown-container">
                     <Dropdown v-model="columnValue" :options="getColumnNamesByType(instance, ['categorical'])" class="w-full" />
                   </div>
@@ -138,6 +137,7 @@
     @submit="name => createNewInstance({ name: name })"
     :existingNames="dataInstances.map(instance => instance.name)"
   />
+
 </template>
 
   <script>
