@@ -142,8 +142,7 @@ export default {
       const rows = csv.trim().split(/\r?\n/);
       const headers = rows[0].split(',');
 
-      const data = rows.slice(1).map(row => row.split(',').map(value => value === '' ? NaN : value));
-      console.log(data);
+      const data = rows.slice(1).map(row => row.split(','));
  
       const dataTypes = this.determineDataTypes(data, headers);
       this.convertNumericColumns(data, dataTypes);
@@ -180,7 +179,7 @@ export default {
       const uniqueValues = new Set();
       data.forEach(row => {
         const value = row[columnIndex];
-        if (typeof value === 'string' && isNaN(value.trim()) && value.trim() !== '') {
+        if (typeof value === 'string' && isNaN(value.trim())) {
           numeric = false;
         }
         uniqueValues.add(value);
@@ -194,7 +193,7 @@ export default {
       for (let i = 0; i < data.length; i++) {
         for (let j = 0; j < data[i].length; j++) {
           const header = Object.keys(dataTypes)[j];
-          if (dataTypes[header].includes('numeric') && data[i][j] !== '') {
+          if (dataTypes[header].includes('numeric')) {
             data[i][j] = Number(data[i][j]);
           }
         }

@@ -4,15 +4,16 @@
       <div class="header" @click="toggleCollapse">
         <h2> </h2>
         <span :class="{ 'arrow-down': isCollapsed, 'arrow-up': !isCollapsed }"></span>
-        <button @click="deleteComponent" class="delete-button">
+        <button @click.stop="deleteComponent" class="delete-button">
           <span class="pi pi-minus"></span>
         </button>
       </div>
 
+
+
       <div v-show="!isCollapsed" class="content">
-        <!-- Left Side: Configuration -->
-        <div class="left-panel">
-          <!-- Visual selection -->
+        <div :class="{ 'left-panel': true, 'hidden': isLeftPanelCollapsed }">
+
           <div v-if="plots.length > 0">
             <div class="info-section">
               <p>Start by selecting a plot type.</p>
@@ -29,7 +30,6 @@
             </div>
           </div>
 
-          <!-- Properties selection -->
           <div class="dataVisual-section">
             <p>Select properties:</p>
             <div class="property-list">
@@ -80,7 +80,6 @@
             </div>
           </div>
 
-          <!-- Submit plot button -->
           <div v-if="canSubmitPlot" class="centered-section">
             <button @click="submitPlot" class="p-button p-component submit-button" :disabled="isLoading">
               Submit Plot
@@ -89,9 +88,14 @@
           </div>
         </div>
 
-        <!-- Main Part: Output -->
-        <div class="main-output">
-          <!-- Output section for the chart -->
+
+      <button @click="toggleLeftPanel" class="collapse-button">
+            <span v-if ='isLeftPanelCollapsed'>></span>
+            <span v-else ><</span>
+
+        </button>
+
+        <div class="main-output" :class="{ 'expanded': isLeftPanelCollapsed }">
           <p v-if="!chartData" class="output-placeholder">Output will be displayed here</p>
           <div v-if="chartType === 'box'" ref="plotlyChart" class="chart-container"></div>
           <canvas v-else ref="chartCanvas" class="chart-container"></canvas>
@@ -145,6 +149,7 @@ export default {
     return {
       selectedPlot: null,
       isCollapsed: false,
+      isLeftPanelCollapsed: false,
       chartData: null,
       chartOptions: {},
       chartType: 'bar',
@@ -156,7 +161,6 @@ export default {
     canSubmitPlot() {
       if (!this.selectedPlot) return false;
       const allValid = this.selectedPlot._properties.every((property) => property.isValid || property.isOptional);
-      console.log('Can submit plot:', allValid);
       return allValid;
     },
     hueValues() {
@@ -182,6 +186,9 @@ export default {
     toggleCollapse() {
       this.isCollapsed = !this.isCollapsed;
     },
+    toggleLeftPanel() {
+      this.isLeftPanelCollapsed = !this.isLeftPanelCollapsed;
+    },
     selectPlot(plot) {
       this.selectedPlot = plot;
       this.plotUpdated();
@@ -206,7 +213,6 @@ export default {
         }
       }
       
-      console.log(`Property set: ${property.name} = `, Array.isArray(property.value) ? Array.from(property.value) : property.value); // Add logging
       this.plotUpdated();
     },
     toggleBooleanProperty(index) {
@@ -225,7 +231,6 @@ export default {
         acc[property.name] = property.isArray ? Array.from(property.value) : property.value;
         return acc;
       }, {});
-      console.log('Selected Values:', selectedValues);
 
       // Process the selected values to create chartData
       this.generateChartData(selectedValues);
@@ -282,7 +287,6 @@ export default {
         default:
           console.error('Unsupported plot type:', plotType);
       }
-      console.log('Generated Chart Data:', this.chartData);
     },
     getBoxWhiskerPlotData(selectedValues) {
       const xVariable = selectedValues.x;
@@ -293,14 +297,6 @@ export default {
       const xIndex = this.variables.indexOf(xVariable);
       const yIndex = this.variables.indexOf(yVariable);
       const hueIndex = hueVariable ? this.variables.indexOf(hueVariable) : -1;
-
-      console.log('xVariable:', xVariable);
-      console.log('yVariable:', yVariable);
-      console.log('hueVariable:', hueVariable);
-      console.log('hueValues:', hueValues);
-      console.log('xIndex:', xIndex);
-      console.log('yIndex:', yIndex);
-      console.log('hueIndex:', hueIndex);
 
       const groupedData = this.data.slice(1).reduce((acc, row) => {
         const xValue = row[xIndex];
@@ -325,8 +321,6 @@ export default {
 
         return acc;
       }, {});
-
-      console.log('Grouped Data:', groupedData);
 
       const labels = Object.keys(groupedData);
       let traces = [];
@@ -376,8 +370,6 @@ export default {
         traces.push(trace);
       }
 
-      console.log('Traces:', traces);
-
       return traces;
     },
     getBoxWhiskerPlotOptions(selectedValues) {
@@ -402,13 +394,6 @@ export default {
       const xIndex = this.variables.indexOf(xVariable);
       const hueIndex = hueVariable ? this.variables.indexOf(hueVariable) : -1;
 
-      console.log('xVariable:', xVariable);
-      console.log('numBins:', numBins);
-      console.log('hueVariable:', hueVariable);
-      console.log('hueValues:', hueValues);
-      console.log('xIndex:', xIndex);
-      console.log('hueIndex:', hueIndex);
-
       const allValues = this.data.slice(1).map(row => Number(row[xIndex]));
 
       const minValue = Math.min(...allValues);
@@ -424,8 +409,6 @@ export default {
         }, {})
       }));
 
-      console.log('Bins:', bins);
-
       this.data.slice(1).forEach(row => {
         const value = Number(row[xIndex]);
         const binIndex = Math.min(Math.floor((value - minValue) / binSize), numBins - 1);
@@ -437,8 +420,6 @@ export default {
           }
         }
       });
-
-      console.log('Bins after filling:', bins);
 
       let datasets;
       if (hueVariable && hueIndex !== -1) {
@@ -461,8 +442,6 @@ export default {
         }];
       }
 
-      console.log('Datasets:', datasets);
-
       return {
         labels: bins.map(bin => bin.range),
         datasets: datasets,
@@ -478,15 +457,6 @@ export default {
       const xIndex = this.variables.indexOf(xVariable);
       const yIndex = this.variables.indexOf(yVariable);
       const hueIndex = hueVariable ? this.variables.indexOf(hueVariable) : -1;
-
-      console.log('xVariable:', xVariable);
-      console.log('yVariable:', yVariable);
-      console.log('hueVariable:', hueVariable);
-      console.log('hueValues:', hueValues);
-      console.log('xIndex:', xIndex);
-      console.log('yIndex:', yIndex);
-      console.log('hueIndex:', hueIndex);
-      console.log('xValuesFilter:', xValuesFilter);
 
       const groupedData = this.data.slice(1).filter(row => xValuesFilter.length === 0 || xValuesFilter.includes(row[xIndex])).reduce((acc, row) => {
         const xValue = row[xIndex];
@@ -513,8 +483,6 @@ export default {
 
         return acc;
       }, {});
-
-      console.log('Grouped Data:', groupedData);
 
       const labels = Object.keys(groupedData);
       let datasets;
@@ -543,8 +511,6 @@ export default {
           borderWidth: 1,
         }];
       }
-
-      console.log('Datasets:', datasets);
 
       return {
         labels: labels,
@@ -640,11 +606,6 @@ export default {
       const xIndex = this.variables.indexOf(xVariable);
       const yIndex = this.variables.indexOf(yVariable);
 
-      console.log('xVariable:', xVariable);
-      console.log('yVariable:', yVariable);
-      console.log('xIndex:', xIndex);
-      console.log('yIndex:', yIndex);
-
       const xValues = this.data.slice(1).map(row => Number(row[xIndex]));
       const yValues = this.data.slice(1).map(row => Number(row[yIndex]));
 
@@ -717,7 +678,6 @@ export default {
 </script>
 
 <style>
-
 .dataVisual-container {
   display: flex;
   flex-direction: column;
@@ -744,7 +704,6 @@ export default {
   border-top-left-radius: 15px;
   border-top-right-radius: 15px;
   background-color: #0e2962;
-
 }
 
 .header:hover {
@@ -784,12 +743,42 @@ export default {
   padding: 20px;
   border-right: 1px solid #eee;
   background-color: #ffffff;
+  position: relative;
+  transition: width 0.3s ease;
 }
+
+.hidden {
+  display: none;
+}
+
+.collapse-button {
+  position: absolute;
+
+  background: #5d80ca;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  z-index: 1;
+}
+
+
 
 .main-output {
   flex-grow: 1;
   padding: 20px;
   background-color: #ffffff;
+  transition: flex-grow 0.3s ease;
+}
+
+.main-output.expanded {
+  flex-grow: 1;
 }
 
 .dataVisual-list {
@@ -929,5 +918,4 @@ input:checked + .slider:before {
   width: 100%;
   height: 400px;
 }
-
 </style>

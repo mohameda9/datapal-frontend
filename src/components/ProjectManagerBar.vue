@@ -14,6 +14,15 @@
           <span>Data Processing</span>
         </CRow>
       </div>
+
+      <div class="menu-item" @click="$emit('goDataAnalysis')">
+        <CRow class="menu-text">
+          <i class="fa fa-cogs"></i>
+          <span>Statistical Analysis</span>
+        </CRow>
+      </div>
+
+
       <div class="menu-item" @click="$emit('goModelCreation')">
         <CRow class="menu-text">
           <i class="fa fa-project-diagram"></i>

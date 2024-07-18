@@ -1,13 +1,17 @@
 <template>
     <div class="main-layout">
     <CCol class="project-manager-bar" md="{ span: 2 }">
-      <ProjectManagerBar @goDataProcessing="activePage = 'dataProcessing'" @goDataUpload="activePage = 'dataUpload'" />
+      <ProjectManagerBar @goDataProcessing="activePage = 'dataProcessing'" @goDataUpload="activePage = 'dataUpload'" 
+      @goDataAnalysis="activePage = 'dataAnalysis'"/>
     </CCol>
 
     <CCol class="main-container" md="{ span: 2 }">
       <div :style="{ alignItems: 'center' }">
         <div v-show="activePage === 'dataUpload'">
           <DataUpload_new />
+        </div>
+        <div v-show="activePage === 'dataAnalysis'">
+          <DataAnalysis />
         </div>
 
         <div v-if="dataInstances.length > 0 && activePage === 'dataProcessing'" class="mt-3">
@@ -166,6 +170,8 @@
   import ProjectManagerBar from './components/ProjectManagerBar.vue';
   import DataUpload_new from './views/DataUpload_new.vue';
   import UserDataset from './components/UserDataset.vue';
+  import DataAnalysis from './views/DataAnalysis.vue';
+
 
   export default {
   name: 'DataManipulation',
@@ -177,7 +183,7 @@
       creatingNewColumn: false,
       shownormalizemodal: false,
       handlingMissingValues: false,
-      loadingNewInstance: false,
+      loadingNewInstance: false, 
       creatingInstance: false,
       instanceParent: [],
       currentDataTypes: {},
@@ -207,6 +213,7 @@
     CDropdownToggle,
     CDropdownMenu,
     CDropdownItem,
+    DataAnalysis,
     Dropdown,
     Button
   },
@@ -518,7 +525,8 @@
       const rows = updatedData.map(row => headers.map(header => row[header]));
       instance.data = [headers, ...rows];
       return instance
-    }
+    },
+
   }
 };
 </script>
