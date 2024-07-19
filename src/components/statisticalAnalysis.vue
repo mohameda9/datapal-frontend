@@ -93,7 +93,7 @@
               <div v-if="property.expects === 'select'" class="property-options">
                 <CDropdown class="comparison-dropdown">
                   <CDropdownToggle color="primary">
-                    {{ property.value || 'Select comparison type' }}
+                    {{ property.value || 'Select option' }}
                   </CDropdownToggle>
                   <CDropdownMenu>
                     <CDropdownItem
@@ -129,43 +129,84 @@
       <div class="main-output" :class="{ 'expanded': isLeftPanelCollapsed }">
         <p v-if="!resultData" class="output-placeholder">Results will be displayed here</p>
         <div v-if="resultData && resultData.test_results" class="result-container">
-          <h4>Ho: {{ resultData.test_results.null_hypothesis }}</h4>
-          <h4>H1: {{ resultData.test_results.alternative_hypothesis }}</h4>
-          <div v-if="resultData.summary_statistics" class="summary-statistics">
-            <h4>Summary Statistics</h4>
+          <h4>Test Results</h4>
+          <div class="table-container">
             <table class="result-table">
               <thead>
                 <tr>
-                  <th>Group</th>
+                  <th>Parameter</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(value, key) in resultData.test_results" :key="key">
+                  <td>{{ key }}</td>
+                  <td>{{ value }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div v-if="resultData && resultData.summary_statistics" class="summary-statistics">
+          <h4>Summary Statistics</h4>
+          <div class="table-container">
+            <table class="result-table">
+              <thead>
+                <tr>
+                  <th>Column</th>
                   <th v-for="stat in getSummaryStatsHeaders(resultData.summary_statistics)" :key="stat">{{ stat }}</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(stats, group) in resultData.summary_statistics" :key="group">
-                  <td>{{ group }}</td>
+                <tr v-for="(stats, column) in resultData.summary_statistics" :key="column">
+                  <td>{{ column }}</td>
                   <td v-for="stat in getSummaryStatsHeaders(resultData.summary_statistics)" :key="stat">{{ stats[stat] }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <h4>Test Results</h4>
-          <table class="result-table">
-            <thead>
-              <tr>
-                <th>Parameter</th>
-                <th>Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(value, key) in resultData.test_results" :key="key">
-                <td>{{ key }}</td>
-                <td>{{ value }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-if="resultData.group_summary" class="group-summary">
-            <h4>Group Summary</h4>
-
+        </div>
+        <div v-if="resultData && resultData.correlation_matrix" class="correlation-matrix">
+          <h4>Correlation Matrix</h4>
+          <div class="table-container">
+            <table class="result-table heatmap-table">
+              <thead>
+                <tr>
+                  <th> </th>
+                  <th v-for="(value, key) in resultData.correlation_matrix" :key="key">{{ key }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowKey) in resultData.correlation_matrix" :key="rowKey">
+                  <td>{{ rowKey }}</td>
+                  <td v-for="(value, colKey) in row" :key="colKey" :style="{ backgroundColor: getHeatmapColor(value) }">{{ value.toFixed(2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div v-if="resultData && resultData.p_value_matrix" class="p-value-matrix">
+          <h4>P-Value Matrix</h4>
+          <div class="table-container">
+            <table class="result-table">
+              <thead>
+                <tr>
+                  <th> </th>
+                  <th v-for="(value, key) in resultData.p_value_matrix" :key="key">{{ key }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowKey) in resultData.p_value_matrix" :key="rowKey">
+                  <td>{{ rowKey }}</td>
+                  <td v-for="(value, colKey) in row" :key="colKey">{{ value.toFixed(3) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div v-if="resultData && resultData.group_summary" class="group-summary">
+          <h4>Group Summary</h4>
+          <div class="table-container">
             <table class="result-table">
               <thead>
                 <tr>
@@ -180,25 +221,23 @@
                 </tr>
               </tbody>
             </table>
-
-
           </div>
-          <div v-if="resultData.post_hoc && resultData.post_hoc.results.length" class="post-hoc-analysis">
-            <h4>Post Hoc Analysis ({{ resultData.post_hoc.test }})</h4>
-            <div class="result-table-wrapper">
-              <table class="result-table">
-                <thead>
-                  <tr>
-                    <th v-for="(value, key) in resultData.post_hoc.results[0]" :key="key">{{ key }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(result, index) in resultData.post_hoc.results" :key="index">
-                    <td v-for="(value, key) in result" :key="key">{{ value }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+        </div>
+        <div v-if="resultData && resultData.post_hoc && resultData.post_hoc.results.length" class="post-hoc-analysis">
+          <h4>Post Hoc Analysis ({{ resultData.post_hoc.test }})</h4>
+          <div class="table-container">
+            <table class="result-table">
+              <thead>
+                <tr>
+                  <th v-for="(value, key) in resultData.post_hoc.results[0]" :key="key">{{ key }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(result, index) in resultData.post_hoc.results" :key="index">
+                  <td v-for="(value, key) in result" :key="key">{{ value }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -247,6 +286,7 @@ export default {
       groupedTests: {
         'Parametric Tests': [],
         'Non-Parametric Tests': [],
+        'Correlation Tests': [],
       }
     };
   },
@@ -260,6 +300,8 @@ export default {
           this.groupedTests['Parametric Tests'].push(test);
         } else if (['MannWhitneyUTest', 'KruskalWallisTest'].includes(test._name)) {
           this.groupedTests['Non-Parametric Tests'].push(test);
+        } else if (['Correlation'].includes(test._name)) {
+          this.groupedTests['Correlation Tests'].push(test);
         }
       });
 
@@ -331,6 +373,10 @@ export default {
     },
     showProperty(propertyName) {
       if (!this.selectedTest) return false;
+
+      if (this.selectedTest._name === 'Correlation') {
+        return propertyName === 'columns' || propertyName === 'correlation_type' || propertyName === 'nan_handling';
+      }
 
       if (this.selectedTest._name === 'IndependentTwoSampleTTest' || this.selectedTest._name === 'PairedSampleTTest' || this.selectedTest._name === 'MannWhitneyUTest') {
         const comparisonType = this.selectedTest._properties.find(prop => prop.name === 'comparison_type')?.value;
@@ -412,8 +458,7 @@ export default {
       this.isLoading = false;
     },
     getSummaryStatsHeaders(summaryStatistics) {
-      const firstGroup = Object.values(summaryStatistics)[0];
-      return Object.keys(firstGroup);
+      return Object.keys(summaryStatistics[Object.keys(summaryStatistics)[0]]);
     },
     getCategoryOptions(property) {
       if (property.expects === 'categories') {
@@ -425,6 +470,12 @@ export default {
         }
       }
       return [];
+    },
+    getHeatmapColor(value) {
+      const intensity = Math.abs(value);
+      const lightness = 1 - intensity;
+      const hue = value > 0 ? 120 : 0; // 120 for green, 0 for red
+      return `hsl(${hue}, 100%, ${lightness * 80 + 20}%)`;
     }
   }
 };
@@ -662,9 +713,34 @@ export default {
 
 .result-table th {
   background-color: #f2f2f2;
+  font-weight: bold;
 }
 
 .result-table td {
   background-color: #fafafa;
+}
+
+.heatmap-table td {
+  text-align: center;
+}
+
+.table-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+.table-container::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background-color: #007bff;
+  border-radius: 10px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background-color: #f1f1f1;
 }
 </style>

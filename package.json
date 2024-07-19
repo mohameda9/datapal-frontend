@@ -27,7 +27,8 @@
     "vue-router": "^4.0.13",
     "vue-tables-2": "^2.3.5",
     "vuedraggable": "^2.24.3",
-    "vuex": "^4.1.0"
+    "vuex": "^4.1.0",
+    "vuex-persistedstate": "^4.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",

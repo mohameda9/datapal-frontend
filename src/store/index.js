@@ -1,41 +1,66 @@
+import axios from 'axios';
 import { createStore } from 'vuex';
 
 export default createStore({
   state: {
-    dataInstances: []
+    localDataInstances: [],
   },
   mutations: {
-    SET_DATA_INSTANCES(state, instances) {
-      state.dataInstances = instances;
+    SET_LOCAL_DATA_INSTANCES(state, instances) {
+      state.localDataInstances = instances;
     },
-    ADD_DATA_INSTANCE(state, instance) {
-      state.dataInstances.push(instance);
+    ADD_LOCAL_DATA_INSTANCE(state, instance) {
+      state.localDataInstances.push(instance);
     },
-    DELETE_DATA_INSTANCE(state, index) {
-      state.dataInstances.splice(index, 1);
+    DELETE_LOCAL_DATA_INSTANCE(state, index) {
+      state.localDataInstances.splice(index, 1);
     },
-    EDIT_DATA_INSTANCE(state, { index, newData }) {
-      if (state.dataInstances[index]) {
-        state.dataInstances[index] = { ...state.dataInstances[index], ...newData };
+    EDIT_LOCAL_DATA_INSTANCE(state, { index, newData }) {
+      if (state.localDataInstances[index]) {
+        state.localDataInstances[index] = { ...state.localDataInstances[index], ...newData };
       }
-    }
+    },
   },
   actions: {
-    setDataInstances({ commit }, instances) {
-      commit('SET_DATA_INSTANCES', instances);
+    async fetchLocalDataInstances({ commit }) {
+      try {
+        const response = await axios.get('http://localhost:8000/api/instances');
+        commit('SET_LOCAL_DATA_INSTANCES', response.data);
+
+
+      } catch (error) {
+        console.error('Error fetching data instances:', error);
+      }
+
     },
-    addDataInstance({ commit }, instance) {
-      commit('ADD_DATA_INSTANCE', instance);
+    async saveLocalDataInstances({ state }) {
+      try {
+        // Delete all instances first
+        await axios.delete('http://localhost:8000/api/instances');
+
+        // Add each instance one by one
+        const promises = state.localDataInstances.map(instance => axios.post('http://localhost:8000/api/instances', instance));
+        await Promise.all(promises);
+
+        console.log('Data instances saved successfully');
+      } catch (error) {
+        console.error('Error saving data instances:', error);
+      }
     },
-    deleteDataInstance({ commit }, index) {
-      commit('DELETE_DATA_INSTANCE', index);
+    setLocalDataInstances({ commit }, instances) {
+      commit('SET_LOCAL_DATA_INSTANCES', instances);
     },
-    editDataInstance({ commit }, payload) {
-      commit('EDIT_DATA_INSTANCE', payload);
-    }
+    addLocalDataInstance({ commit }, instance) {
+      commit('ADD_LOCAL_DATA_INSTANCE', instance);
+    },
+    deleteLocalDataInstance({ commit }, index) {
+      commit('DELETE_LOCAL_DATA_INSTANCE', index);
+    },
+    editLocalDataInstance({ commit }, payload) {
+      commit('EDIT_LOCAL_DATA_INSTANCE', payload);
+    },
   },
   getters: {
-    getDataInstances: (state) => state.dataInstances
-  }
+    getLocalDataInstances: (state) => state.localDataInstances,
+  },
 });
- 

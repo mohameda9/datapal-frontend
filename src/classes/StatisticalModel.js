@@ -485,3 +485,41 @@ export class OneWayANOVA extends StatisticalModel {
     return false;
   }
 }
+
+
+export class Correlation extends StatisticalModel {
+  constructor() {
+    super("Correlation");
+    this._properties.push(
+      {
+        value: new Set(),
+        isArray: true,
+        expects: "variables",
+        desc: "Select columns for correlation analysis",
+        name: "columns",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: "pearson",
+        isArray: false,
+        expects: "select",
+        desc: "Select type of correlation",
+        name: "correlation_type",
+        options: ["pearson", "spearman"],
+        isValid: true,
+        isOptional: false,
+      },
+      {
+        value: "drop_rows",
+        isArray: false,
+        expects: "select",
+        desc: "Select NaN handling method",
+        name: "nan_handling",
+        options: ["drop_rows", "pairwise"],
+        isValid: true,
+        isOptional: false,
+      }
+    );
+  }
+}

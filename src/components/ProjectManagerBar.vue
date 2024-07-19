@@ -1,6 +1,12 @@
 <template>
   <div class="sidebar">
     <h1 class="name">DataPal</h1>
+    <div class="save-work" @click="saveDataInstances">
+        <CRow >
+          <i class="fa fa-save"></i>
+          <span>Save Data Instances</span>
+        </CRow>
+      </div>
     <div class="menu">
       <div class="menu-item" @click="$emit('goDataUpload')">
         <CRow class="menu-text">
@@ -14,15 +20,12 @@
           <span>Data Processing</span>
         </CRow>
       </div>
-
       <div class="menu-item" @click="$emit('goDataAnalysis')">
         <CRow class="menu-text">
           <i class="fa fa-cogs"></i>
           <span>Statistical Analysis</span>
         </CRow>
       </div>
-
-
       <div class="menu-item" @click="$emit('goModelCreation')">
         <CRow class="menu-text">
           <i class="fa fa-project-diagram"></i>
@@ -35,6 +38,7 @@
           <span>Model Evaluation</span>
         </CRow>
       </div>
+
       <router-view />
     </div>
   </div>
@@ -42,10 +46,19 @@
 
 <script>
 import { CRow } from '@coreui/vue';
+import { mapActions } from 'vuex';
 
 export default {
   name: 'ProjectManagerBar',
-  methods: {}
+  methods: {
+    ...mapActions(['fetchLocalDataInstances', 'saveLocalDataInstances']),
+    saveDataInstances() {
+      this.saveLocalDataInstances();
+    }
+  },
+  async created() {
+    await this.fetchLocalDataInstances();
+  }
 };
 </script>
 
@@ -70,7 +83,6 @@ export default {
   border: 2px solid #0b0000;
   animation: glowing 1.5s infinite;
 }
-
 
 .sidebar .name {
   font-size: 200%; /* Increased font size */
@@ -110,10 +122,36 @@ export default {
   color: #fff;
 }
 
+
+
+.save-work {
+  display: flex;
+  align-items: center;
+  padding: 20px; /* Increased padding */
+  margin: 10px 0; /* Increased margin */
+
+  color: #2f3640;
+  cursor: pointer;
+}
+
+.save-work  i {
+  font-size: 100%; /* Increased font size */
+}
+
+.save-work  span {
+  font-size: 100%; /* Increased font size */
+}
+
+.save-work :hover {
+  border-radius: 20px;
+  border: 5px solid #0b0000;
+}
+
+
+
 .menu-text {
   display: flex;
   align-items: center;
   width: 100%;
 }
-
 </style>

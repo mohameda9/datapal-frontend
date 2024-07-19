@@ -1,8 +1,11 @@
 <template>
-    <div class="main-layout">
+  <div class="main-layout">
     <CCol class="project-manager-bar" md="{ span: 2 }">
-      <ProjectManagerBar @goDataProcessing="activePage = 'dataProcessing'" @goDataUpload="activePage = 'dataUpload'" 
-      @goDataAnalysis="activePage = 'dataAnalysis'"/>
+      <ProjectManagerBar
+        @goDataProcessing="activePage = 'dataProcessing'"
+        @goDataUpload="activePage = 'dataUpload'"
+        @goDataAnalysis="activePage = 'dataAnalysis'"
+      />
     </CCol>
 
     <CCol class="main-container" md="{ span: 2 }">
@@ -14,8 +17,8 @@
           <DataAnalysis />
         </div>
 
-        <div v-if="dataInstances.length > 0 && activePage === 'dataProcessing'" class="mt-3">
-          <div v-for="(instance, instanceIndex) in dataInstances" :key="instanceIndex" class="instance-container">
+        <div v-if="localDataInstances.length > 0 && activePage === 'dataProcessing'" class="mt-3">
+          <div v-for="(instance, instanceIndex) in localDataInstances" :key="instanceIndex" class="instance-container">
             <div class="header">
               <div class="header-content">
                 <Button
@@ -73,23 +76,23 @@
                   if (instance.numdisplayedRows < instance.totalRows) loadMoreRows(instanceIndex);
                 }"
               >
-                <UserDataset :data="getDataInstances[instanceIndex].data" />
+                <UserDataset :data="localDataInstances[instanceIndex].data" />
               </div>
               <div class="button-center-container">
                 <Dialog v-if="showonehotmodal" visible editable @hide="showonehotmodal = false" :modal="true" header="One hot encoding">
                   <p>Select a categorical column to one hot encode</p>
                   <div class="custom-dropdown-container">
-                    <Dropdown v-model="columnValue" :options="getColumnNamesByType(instance, ['categorical'])" class="w-full" />
+                    <Dropdown v-model="columnValue" :options="getColumnNamesByType(localDataInstances[modalForIndex], ['categorical'])" class="w-full" />
                   </div>
                   <div class="modal-footer">
-                    <Button label="Submit" icon="pi pi-check" @click="wf_oneHotEncode(columnValue, instanceIndex)" />
+                    <Button label="Submit" icon="pi pi-check" @click="wf_oneHotEncode(columnValue)" />
                     <Button label="Cancel" icon="pi pi-times" class="p-button-secondary" @click="showonehotmodal = false" />
                   </div>
                 </Dialog>
                 <Dialog v-if="shownormalizemodal" visible hide="shownormalizemodal = false" :modal="true" :closable="false" header="Normalize Column">
                   <p>Select a numerical column to normalize</p>
                   <div class="custom-dropdown-container">
-                    <Dropdown v-model="selectedValue" :options="getColumnNamesByType(instance, ['numeric'])" placeholder="Select a column" class="w-full" />
+                    <Dropdown v-model="selectedValue" :options="getColumnNamesByType(localDataInstances[modalForIndex], ['numeric'])" placeholder="Select a column" class="w-full" />
                   </div>
                   <div class="input-group">
                     <div class="input-item">
@@ -108,7 +111,7 @@
                     <Button
                       label="Submit"
                       icon="pi pi-check"
-                      @click="wf_scaleColumn(selectedValue ? selectedValue : getColumnNamesByType(instance, ['numeric'])[0], instanceIndex, 'normalize', newMin, newMax)"
+                      @click="wf_scaleColumn(selectedValue ? selectedValue : getColumnNamesByType(localDataInstances[modalForIndex], ['numeric'])[0], instanceIndex, 'normalize', newMin, newMax)"
                     />
                     <Button label="Cancel" icon="pi pi-times" class="p-button-secondary" @click="shownormalizemodal = false" />
                   </div>
@@ -117,7 +120,7 @@
 
               <DataProcessingWorkflow
                 :index="instanceIndex"
-                :workflows="dataInstances[instanceIndex].workflow"
+                :workflows="localDataInstances[instanceIndex].workflow"
                 @workflow-action="handleWorkflowAction"
                 @execute-workflows="handleExecuteWorkflows"
                 @update:workflows="updateWorkflow"
@@ -139,51 +142,37 @@
     v-if="creatingInstance"
     @close="creatingInstance = false"
     @submit="name => createNewInstance({ name: name })"
-    :existingNames="dataInstances.map(instance => instance.name)"
+    :existingNames="localDataInstances.map(instance => instance.name)"
   />
-
 </template>
 
-  <script>
-  import myModal from './components/myModal.vue';
+<script>
+import myModal from './components/myModal.vue';
+import { mapActions, mapGetters } from 'vuex';
+import axios from '@/axios.js'; // Path to the axios.js file
+import ColumnCreator from './components/ColumnCreator.vue';
+import missingValueHandler from './components/missingValueHandler.vue';
+import { getColumnNamesByType } from './utils/commonFunctions.js';
+import Button from 'primevue/button';
+import DataProcessingWorkflow from './components/DataProcessingWorkflow.vue';
+import Dropdown from 'primevue/dropdown';
+import Dialog from 'primevue/dialog';
+import ProjectManagerBar from './components/ProjectManagerBar.vue';
+import DataUpload_new from './views/DataUpload_new.vue';
+import UserDataset from './components/UserDataset.vue';
+import DataAnalysis from './views/DataAnalysis.vue';
 
-  import {
-    CDropdown,
-    CDropdownToggle,
-    CDropdownMenu,
-    
-    CDropdownItem,
-    CCol,
-  } from '@coreui/vue'; 
-  
-
-  import { mapActions, mapGetters } from 'vuex';
-
-  import axios from '@/axios.js'; // Path to the axios.js file
-  import ColumnCreator from './components/ColumnCreator.vue';
-  import missingValueHandler from './components/missingValueHandler.vue';
-  import {getColumnNamesByType} from './utils/commonFunctions.js';
-  import Button from 'primevue/button';
-  import DataProcessingWorkflow from './components/DataProcessingWorkflow.vue';
-  import Dropdown from 'primevue/dropdown';
-  import Dialog from 'primevue/dialog';
-  import ProjectManagerBar from './components/ProjectManagerBar.vue';
-  import DataUpload_new from './views/DataUpload_new.vue';
-  import UserDataset from './components/UserDataset.vue';
-  import DataAnalysis from './views/DataAnalysis.vue';
-
-
-  export default {
+export default {
   name: 'DataManipulation',
   data() {
     return {
-      activePage:"dataUpload",
+      activePage: "dataUpload",
       showonehotmodal: false,
       minMaxvalidationError: null,
       creatingNewColumn: false,
       shownormalizemodal: false,
       handlingMissingValues: false,
-      loadingNewInstance: false, 
+      loadingNewInstance: false,
       creatingInstance: false,
       instanceParent: [],
       currentDataTypes: {},
@@ -206,94 +195,25 @@
     missingValueHandler,
     myModal,
     Dialog,
-    CDropdown,
     DataUpload_new,
     ProjectManagerBar,
     DataProcessingWorkflow,
-    CDropdownToggle,
-    CDropdownMenu,
-    CDropdownItem,
-    DataAnalysis,
     Dropdown,
-    Button
+    Button,
+    DataAnalysis
   },
   computed: {
-    ...mapGetters(['getDataInstances']),
-    dataInstances() {
-      return this.getDataInstances;
+    ...mapGetters(['getLocalDataInstances']),
+    localDataInstances() {
+      return this.getLocalDataInstances;
     }
   },
   methods: {
-    ...mapActions(['setDataInstances', 'addDataInstance', 'deleteDataInstance', 'editDataInstance']),
-
-    determineDataTypeForColumn(data, columnIndex) {
-      let numeric = true;
-      const uniqueValues = new Set();
-
-      data.forEach(row => {
-        const value = row[columnIndex];
-        if (value === null || value === undefined || value === '') {
-          return; // Skip NaNs, nulls, undefined, and empty strings
-        }
-        if (typeof value === 'string') {
-          const trimmedValue = value.trim();
-          uniqueValues.add(trimmedValue);
-          if (isNaN(trimmedValue) || trimmedValue === '') {
-            numeric = false;
-          }
-        } else {
-          uniqueValues.add(value);
-          if (isNaN(value) || value === null || value === undefined) {
-            numeric = false;
-          }
-        }
-      });
-
-      const isBinary = uniqueValues.size === 2;
-      const isCategorical = uniqueValues.size / data.length < 0.03;
-
-      if (isBinary && numeric) {
-        return 'numeric binary';
-      } else if (isBinary) {
-        return 'categorical binary';
-      } else if (numeric) {
-        return 'numeric';
-      } else if (isCategorical) {
-        return 'categorical';
-      } else {
-        return 'string';
-      }
-    },
-    determineDataTypes(data, headers) {
-      const dataTypes = {};
-      headers.forEach((header, index) => {
-        dataTypes[header] = this.determineDataTypeForColumn(data, index);
-        this.convertColumnData(data, index, dataTypes[header]);
-      });
-      return dataTypes;
-    },
-    convertColumnData(row_data, columnIndex, dataType) {
-      row_data.forEach(row => {
-        let value = row[columnIndex];
-        if (dataType === 'numeric' || dataType === 'numeric binary') {
-          row[columnIndex] = parseFloat(value);
-        }
-      });
-    },
-    updateDataTypesForNewColumns(instance, newColumns = []) {
-      const newHeaders = instance.data[0];
-      newHeaders.forEach(header => {
-        if (!Object.prototype.hasOwnProperty.call(instance.dataTypes, header) || newColumns.includes(header)) {
-          const colIndex = newHeaders.indexOf(header);
-          instance.dataTypes[header] = this.determineDataTypeForColumn(instance.data.slice(1), colIndex);
-          this.convertColumnData(instance.data.slice(1), colIndex, instance.dataTypes[header]);
-        }
-      });
-    },
+    ...mapActions(['setLocalDataInstances', 'addLocalDataInstance', 'deleteLocalDataInstance', 'editLocalDataInstance']),
     loadMoreRows(instanceIndex) {
-      const updatedInstances = [...this.dataInstances];
+      const updatedInstances = [...this.localDataInstances];
       updatedInstances[instanceIndex].numdisplayedRows += 5;
-      this.setDataInstances(updatedInstances);
+      this.setLocalDataInstances(updatedInstances);
     },
     columnsWithMissingValues(instance) {
       const columnsWithMissing = [];
@@ -310,35 +230,35 @@
       this.ParentInstanceIndex = instanceIndex;
       this.creatingInstance = true;
     },
-    createNewInstance({name }) {
-      let cloneInstance = this.dataInstances[this.ParentInstanceIndex]
+    createNewInstance({ name }) {
+      let cloneInstance = this.localDataInstances[this.ParentInstanceIndex]
       console.log(cloneInstance)
 
-        this.addDataInstance({
-          data: JSON.parse(JSON.stringify(cloneInstance.data)),
-          numdisplayedRows: 20,
-          totalRows: cloneInstance.data.length - 1,
-          loadingNewInstance: false,
-          name: name,
-          dataTypes: JSON.parse(JSON.stringify(cloneInstance.dataTypes)),
-          workflow: [],
-          isCollapsed: false,
-        });
-        console.log("sss"),
+      this.addLocalDataInstance({
+        data: JSON.parse(JSON.stringify(cloneInstance.data)),
+        numdisplayedRows: 20,
+        totalRows: cloneInstance.data.length - 1,
+        loadingNewInstance: false,
+        name: name,
+        dataTypes: JSON.parse(JSON.stringify(cloneInstance.dataTypes)),
+        workflow: [],
+        isCollapsed: false,
+      });
+      console.log("sss"),
 
         this.creatingInstance = false;
     },
     confirmDelete(instanceIndex) {
       if (window.confirm('Are you sure you want to delete this instance?')) {
-        this.deleteDataInstance(instanceIndex);
+        this.deleteLocalDataInstance(instanceIndex);
       }
     },
     toggleCollapse(instance) {
-      const updatedInstances = [...this.dataInstances];
+      const updatedInstances = [...this.localDataInstances];
       const index = updatedInstances.indexOf(instance);
       if (index !== -1) {
         updatedInstances[index].isCollapsed = !updatedInstances[index].isCollapsed;
-        this.setDataInstances(updatedInstances);
+        this.setLocalDataInstances(updatedInstances);
       }
     },
 
@@ -362,7 +282,7 @@
       }, 1000);
     },
     changeMetricType(columnName, type, instanceIndex) {
-      const updatedInstances = [...this.dataInstances];
+      const updatedInstances = [...this.localDataInstances];
       const instance = updatedInstances[instanceIndex];
       const colIndex = instance.data[0].indexOf(columnName);
       let isConvertible = true;
@@ -386,10 +306,10 @@
 
       instance.dataTypes[columnName] = type;
       this.convertColumnData(instance.data.slice(1), colIndex, type);
-      this.setDataInstances(updatedInstances);
+      this.setLocalDataInstances(updatedInstances);
     },
     async handleNewColumnCreation(newColumnCreationMetaData, instanceIndex) {
-      const updatedInstances = [...this.dataInstances];
+      const updatedInstances = [...this.localDataInstances];
       const instance = updatedInstances[instanceIndex];
       const dataToSend = {
         data: instance.data.map(row => ({ columns: row }))
@@ -405,14 +325,11 @@
           }
         });
         updatedInstances[instanceIndex] = this.updateDataFromBackend(instance, response);
-        this.setDataInstances(updatedInstances);
+        this.setLocalDataInstances(updatedInstances);
       } catch (error) {
         console.error('Error:', error);
       }
     },
-
-
-
 
     handleWorkflowAction(action, index) {
       console.log("ggg")
@@ -427,14 +344,14 @@
     },
     updateWorkflow(workflow, instanceIndex) {
       console.log(instanceIndex)
-      const updatedInstances = [...this.dataInstances];
+      const updatedInstances = [...this.localDataInstances];
       console.log(workflow)
       updatedInstances[instanceIndex].workflow = workflow;
-      this.setDataInstances(updatedInstances);
+      this.setLocalDataInstances(updatedInstances);
     },
     handleWorkflowSubmission(instanceIndex, action, description, APIdata) {
       console.log(instanceIndex)
-      const updatedInstances = [...this.dataInstances];
+      const updatedInstances = [...this.localDataInstances];
       const actionDescriptions = {
         'onehot-encoding': 'One Hot Encoding',
         'normalize-column': 'Normalize Column',
@@ -443,7 +360,7 @@
       };
       const newWorkflow = { title: actionDescriptions[action], description: description, APIdata: APIdata };
       updatedInstances[instanceIndex].workflow.push(newWorkflow);
-      this.setDataInstances(updatedInstances);
+      this.setLocalDataInstances(updatedInstances);
     },
     wf_oneHotEncode(columnName) {
       console.log(this.modalForIndex)
@@ -484,7 +401,7 @@
     async handleExecuteWorkflows(workflows, instanceIndex) {
       console.log("sssss")
       console.log(instanceIndex)
-      const updatedInstances = [...this.dataInstances];
+      const updatedInstances = [...this.localDataInstances];
       const instance = updatedInstances[instanceIndex];
       console.log(instance)
       const dataToSend = {
@@ -512,7 +429,7 @@
           }
         });
 
-        this.setDataInstances(updatedInstances);
+        this.setLocalDataInstances(updatedInstances);
       } catch (error) {
         console.error('Error:', error);
       }
@@ -526,7 +443,6 @@
       instance.data = [headers, ...rows];
       return instance
     },
-
   }
 };
 </script>

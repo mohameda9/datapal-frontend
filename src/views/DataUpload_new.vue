@@ -12,19 +12,19 @@
         </div>
       </section>
 
-      <div v-if="getDataInstances.length > 0 && !dataloadView">
+      <div v-if="localDataInstances.length > 0 && !dataloadView">
         <div class="user-dataset-container">
-          <UserDataset :data="getDataInstances[0].data" />
+          <UserDataset :data="localDataInstances[0].data" />
         </div>
 
         <div class="plots-container">
           <div v-for="(plotList, plotIndex) in plots" :key="plotIndex" class="plot-card">
             <dataVisuals
               :plots="plotList"
-              :data="getDataInstances[0].data"
+              :data="localDataInstances[0].data"
               :numericalColumns="numericalColumns"
               :categoricalColumns="categoricalColumns"
-              :variables="getDataInstances[0].data[0]"
+              :variables="localDataInstances[0].data[0]"
               @deletePlot="() => removePlotCard(plotIndex)"
               @updatePlot="plot => { console.log(plot); }"
               @submittingPlot="handleSubmitPlot"
@@ -40,7 +40,7 @@
       </div>
 
       <Dialog
-        :visible="dataloadView && dataInstances.length > 0"
+        :visible="dataloadView && localDataInstances.length > 0"
         header="Columns Overview"
         closable="false"
         class="data-load-dialog"
@@ -49,7 +49,7 @@
         :draggable="false"
       >
         <div class="dialog-content">
-          <div v-for="(value, column) in dataInstances[0].dataTypes" :key="column" class="field column-field">
+          <div v-for="(value, column) in localDataInstances[0].dataTypes" :key="column" class="field column-field">
             <Button icon="pi pi-trash" class="delete-button" @click="addColumnToDeleteList(column)" />
             <label :for="column" class="column-label">{{ column }}</label>
           </div>
@@ -64,14 +64,15 @@
 </template>
 
 <script>
+import { mapActions, mapGetters } from 'vuex';
 import ProjectManagerBar from '../components/ProjectManagerBar.vue';
 import UserDataset from '../components/UserDataset.vue';
-import { mapActions, mapGetters } from 'vuex';
 import { Histogram, BarPlot, BoxWhiskerPlot, ScatterPlot } from '../classes/Visualization';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import dataVisuals from '../components/dataVisuals.vue';
 import { getColumnNamesByType } from '../utils/commonFunctions';
+import axios from 'axios';
 
 export default {
   name: 'DataUpload_new',
@@ -97,16 +98,16 @@ export default {
     };
   },
   computed: {
-    ...mapGetters(['getDataInstances']),
-    dataInstances() {
-      return this.getDataInstances;
+    ...mapGetters(['getLocalDataInstances']),
+    localDataInstances() {
+      return this.getLocalDataInstances;
     },
     dropMessage() {
       return 'Drag & Drop a CSV file here';
     },
   },
   methods: {
-    ...mapActions(['setDataInstances', 'addDataInstance', 'deleteDataInstance', 'editDataInstance']),
+    ...mapActions(['setLocalDataInstances', 'addLocalDataInstance', 'deleteLocalDataInstance', 'editLocalDataInstance']),
     handleFileChange(event) {
       const selectedFile = event.target.files[0];
       this.handleFile(selectedFile);
@@ -143,13 +144,13 @@ export default {
       const headers = rows[0].split(',');
 
       const data = rows.slice(1).map(row => row.split(','));
- 
+
       const dataTypes = this.determineDataTypes(data, headers);
       this.convertNumericColumns(data, dataTypes);
       this.createNewInstance({ data: [headers, ...data], name: "original", dataTypes });
     },
     createNewInstance({ data, name, dataTypes }) {
-      this.setDataInstances([{
+      this.setLocalDataInstances([{
         data: JSON.parse(JSON.stringify(data)),
         numdisplayedRows: 5,
         totalRows: data.length - 1,
@@ -164,8 +165,8 @@ export default {
         isinbuildingModelPhase: false,
       }]);
       this.creatingInstance = false;
-      this.numericalColumns = getColumnNamesByType(this.getDataInstances[0], ['numeric', 'numeric binary']);
-      this.categoricalColumns = getColumnNamesByType(this.getDataInstances[0], ['categorical', 'categorical binary']);
+      this.numericalColumns = getColumnNamesByType(this.localDataInstances[0], ['numeric', 'numeric binary']);
+      this.categoricalColumns = getColumnNamesByType(this.localDataInstances[0], ['categorical', 'categorical binary']);
     },
     determineDataTypes(data, headers) {
       const dataTypes = {};
@@ -200,7 +201,7 @@ export default {
       }
     },
     submitDataUpload() {
-      const instance = this.getDataInstances[0];
+      const instance = this.localDataInstances[0];
       this.columnsTodelete.forEach(column => {
         const colIndex = instance.data[0].indexOf(column);
         if (colIndex > -1) {
@@ -210,20 +211,20 @@ export default {
       });
       this.columnsTodelete = [];
       this.dataloadView = false;
-      this.editDataInstance(0, instance);
+      this.editLocalDataInstance({ index: 0, newData: instance });
     },
     addColumnToDeleteList(column) {
-      const DataInstances = this.getDataInstances;
+      const dataInstances = this.localDataInstances;
       this.columnsTodelete.push(column);
-      delete DataInstances[0].dataTypes[column];
-      this.setDataInstances(DataInstances);
+      delete dataInstances[0].dataTypes[column];
+      this.setLocalDataInstances(dataInstances);
     },
     resetFileInput() {
       this.$refs.fileInput.value = null;
     },
     cancelDataUpload() {
       this.dataloadView = false;
-      this.setDataInstances([]);
+      this.setLocalDataInstances([]);
     },
     addNewPlotCard() {
       this.plots.push([new Histogram(), new BarPlot(), new BoxWhiskerPlot(), new ScatterPlot()]);
@@ -234,7 +235,10 @@ export default {
     handleSubmitPlot(selectedValues) {
       console.log(selectedValues);
     },
-  }
+
+  },
+
+
 };
 </script>
 
@@ -381,5 +385,19 @@ export default {
 .add-plot-button:hover {
   background-color: #0056b3;
   transform: translateY(-3px);
+}
+
+.save-button {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 20px;
+}
+
+.save-button:hover {
+  background-color: #218838;
 }
 </style>
