@@ -523,3 +523,31 @@ export class Correlation extends StatisticalModel {
     );
   }
 }
+
+
+export class KolmogorovSmirnovTest extends StatisticalModel {
+  constructor() {
+    super("KolmogorovSmirnovTest");
+    this._properties.push(
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select a numeric variable",
+        name: "variable",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "select",
+        desc: "Select a distribution",
+        name: "distribution",
+        options: ["normal", "pareto", "gamma", "uniform", "exponential"],
+        isValid: false,
+        isOptional: false,
+      }
+    );
+  }
+}

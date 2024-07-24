@@ -9,235 +9,256 @@
     </div>
     <div v-show="!isCollapsed" class="content">
       <div class="left-panel">
-        <div v-if="Object.keys(groupedTests).length > 0" class="info-section">
-          <p>Start by selecting a test type:</p>
-          <div class="test-groups">
-            <div v-for="(group, groupName) in groupedTests" :key="groupName">
-              <div class="group-header" @click="toggleGroup(groupName)">
-                <h3>{{ groupName }}</h3>
-                <span :class="{ 'arrow-down': !groupCollapsed[groupName], 'arrow-up': groupCollapsed[groupName] }"></span>
-              </div>
-              <div v-show="!groupCollapsed[groupName]" class="test-list row">
-                <button
-                  v-for="(test, idx) in group"
-                  :key="idx"
-                  @click="selectTest(test, groupName)"
-                  :class="{ selected: test === selectedTest }"
-                  class="test-button"
-                >
-                  {{ test._name }}
-                </button>
-              </div>
-            </div>
+        <div class="left-panel-content">
+          <div v-if="groupedTestOptions.length > 0" class="info-section">
+            <p>Start by selecting a test type:</p>
+            <Dropdown 
+              v-model="selectedTestOption" 
+              :options="groupedTestOptions" 
+              optionLabel="name" 
+              optionGroupLabel="group" 
+              optionGroupChildren="tests" 
+              placeholder="Select Test" 
+              class="small-dropdown"
+              @change="selectTest"
+            >
+              <template #optiongroup="slotProps">
+                <div class="flex items-center">
+                  <div>{{ slotProps.option.group }}</div>
+                </div>
+              </template>
+              <template #option="slotProps">
+                <div class="flex items-center">
+                  <div>{{ slotProps.option.name }}</div>
+                </div>
+              </template>
+            </Dropdown>
           </div>
-        </div>
-        <div v-if="selectedTest && !groupCollapsed[selectedTestGroup]" class="test-section">
-          <p>Select properties:</p>
-          <div class="property-list column">
-            <div v-for="(property, index) in selectedTest._properties" :key="index" class="property-item" v-show="showProperty(property.name)">
-              <div class="property-description">{{ property.desc }}</div>
-              <div v-if="property.expects === 'variable'" class="property-options">
-                <CDropdown class="variable-dropdown">
-                  <CDropdownToggle color="primary">
-                    {{ property.value || 'Select a variable' }}
-                  </CDropdownToggle>
-                  <CDropdownMenu>
-                    <CDropdownItem
-                      v-for="(variable, idx) in variables"
-                      :key="idx"
-                      @click="setProperty(index, variable)"
-                    >
-                      {{ variable }}
-                    </CDropdownItem>
-                  </CDropdownMenu>
-                </CDropdown>
-              </div>
-              <div v-if="property.expects === 'number'" class="property-options">
-                <input 
-                  type="number" 
-                  v-model.number="property.value" 
-                  @input="validateNumber(index, property.value)" 
-                  placeholder="Enter value" 
-                  step="0.01"
-                />
-                <span v-if="property.error" class="error">{{ property.error }}</span>
-              </div>
-              <div v-if="property.expects === 'comparison'" class="property-options">
-                <CDropdown class="comparison-dropdown">
-                  <CDropdownToggle color="primary">
-                    {{ property.value || 'Select comparison' }}
-                  </CDropdownToggle>
-                  <CDropdownMenu>
-                    <CDropdownItem @click="setProperty(index, '<')"> < </CDropdownItem>
-                    <CDropdownItem @click="setProperty(index, '>')"> > </CDropdownItem>
-                    <CDropdownItem @click="setProperty(index, '=')"> = </CDropdownItem>
-                  </CDropdownMenu>
-                </CDropdown>
-              </div>
-              <div v-if="property.expects === 'categories'" class="property-options">
-                <MultiSelect
-                  :options="getCategoryOptions(property)"
-                  :model-value="Array.from(property.value)"
-                  @update:model-value="value => handleCategorySelection(index, value)"
-                  :placeholder="'Select exactly two categories'"
-                />
-              </div>
-              <div v-if="property.expects === 'variables'" class="property-options">
-                <MultiSelect
-                  :options="variables"
-                  :model-value="Array.from(property.value)"
-                  :placeholder="'Select columns'"
-                  @update:model-value="value => setProperty(index, value)"
-                />
-              </div>
-              <div v-if="property.expects === 'select'" class="property-options">
-                <CDropdown class="comparison-dropdown">
-                  <CDropdownToggle color="primary">
-                    {{ property.value || 'Select option' }}
-                  </CDropdownToggle>
-                  <CDropdownMenu>
-                    <CDropdownItem
-                      v-for="(option, idx) in property.options"
-                      :key="idx"
-                      @click="setProperty(index, option)"
-                    >
-                      {{ option }}
-                    </CDropdownItem>
-                  </CDropdownMenu>
-                </CDropdown>
-              </div>
-              <div v-if="property.expects === 'boolean'" class="property-options">
-                <label>
-                  <input 
-                    type="checkbox" 
+          <div v-if="selectedTest && selectedTest._properties && selectedTest._properties.length > 0" class="test-section">
+            <p>Select properties:</p>
+            <div class="property-list column">
+              <div v-for="(property, index) in selectedTest._properties" :key="index" class="property-item" v-show="showProperty(property.name)">
+                <div class="property-description">{{ property.desc }}</div>
+                <div v-if="property.expects === 'variable'" class="property-options">
+                  <Dropdown 
                     v-model="property.value" 
+                    :options="variables" 
+                    placeholder="Select a variable"
                     @change="setProperty(index, property.value)"
+                    class="small-dropdown"
                   />
-                  Assume equal variances
-                </label>
+                </div>
+                <div v-if="property.expects === 'number'" class="property-options">
+                  <input 
+                    type="number" 
+                    v-model.number="property.value" 
+                    @input="validateNumber(index, property.value)" 
+                    placeholder="Enter value" 
+                    step="0.01"
+                    class="small-input"
+                  />
+                  <span v-if="property.error" class="error">{{ property.error }}</span>
+                </div>
+                <div v-if="property.expects === 'comparison'" class="property-options">
+                  <Dropdown 
+                    v-model="property.value" 
+                    :options="['<', '>', '=']" 
+                    placeholder="Select comparison"
+                    @change="setProperty(index, property.value)"
+                    class="small-dropdown"
+                  />
+                </div>
+                <div v-if="property.expects === 'categories'" class="property-options">
+                  <MultiSelect
+                    :options="getCategoryOptions(property)"
+                    :model-value="Array.from(property.value)"
+                    @update:model-value="value => handleCategorySelection(index, value)"
+                    placeholder="Select exactly two categories"
+                    class="small-dropdown"
+                  />
+                </div>
+                <div v-if="property.expects === 'variables'" class="property-options">
+                  <MultiSelect
+                    :options="variables"
+                    :model-value="Array.from(property.value)"
+                    placeholder="Select columns"
+                    @update:model-value="value => setProperty(index, value)"
+                    class="small-dropdown"
+                  />
+                </div>
+                <div v-if="property.expects === 'select'" class="property-options">
+                  <Dropdown 
+                    v-model="property.value" 
+                    :options="property.options" 
+                    placeholder="Select option"
+                    @change="setProperty(index, property.value)"
+                    class="small-dropdown"
+                  />
+                </div>
+                <div v-if="property.expects === 'boolean'" class="property-options">
+                  <label>
+                    <input 
+                      type="checkbox" 
+                      v-model="property.value" 
+                      @change="setProperty(index, property.value)"
+                    />
+                    Assume equal variances
+                  </label>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div v-if="selectedTest && isFormValid()" class="centered-section sticky-submit">
-          <button @click="submitTest" class="p-button p-component submit-button" :disabled="isLoading">
-            Submit Test
-            <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-          </button>
+          <div v-if="selectedTest && isFormValid()" class="centered-section sticky-submit">
+            <button @click="submitTest" class="p-button p-component submit-button" :disabled="isLoading">
+              Submit Test
+              <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
       </div>
-      <div class="main-output" :class="{ 'expanded': isLeftPanelCollapsed }">
-        <p v-if="!resultData" class="output-placeholder">Results will be displayed here</p>
-        <div v-if="resultData && resultData.test_results" class="result-container">
-          <h4>Test Results</h4>
-          <div class="table-container">
-            <table class="result-table">
-              <thead>
-                <tr>
-                  <th>Parameter</th>
-                  <th>Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(value, key) in resultData.test_results" :key="key">
-                  <td>{{ key }}</td>
-                  <td>{{ value }}</td>
-                </tr>
-              </tbody>
-            </table>
+      <div class="main-output-container">
+        <div class="main-output" :class="{ 'expanded': isLeftPanelCollapsed }">
+          <p v-if="!resultData" class="output-placeholder">Results will be displayed here</p>
+          <div v-if="resultData && resultData.summary_statistics" class="summary-statistics">
+            <h4>Summary Statistics</h4>
+            <div class="table-container">
+              <table class="result-table">
+                <thead>
+                  <tr>
+                    <th>Group</th>
+                    <th>Count</th>
+                    <th>Sum</th>
+                    <th>Mean</th>
+                    <th>Variance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(stats, group) in resultData.summary_statistics" :key="group">
+                    <td>{{ group }}</td>
+                    <td>{{ stats.count }}</td>
+                    <td>{{ stats.sum }}</td>
+                    <td>{{ stats.mean }}</td>
+                    <td>{{ stats.variance }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-        <div v-if="resultData && resultData.summary_statistics" class="summary-statistics">
-          <h4>Summary Statistics</h4>
-          <div class="table-container">
-            <table class="result-table">
-              <thead>
-                <tr>
-                  <th>Column</th>
-                  <th v-for="stat in getSummaryStatsHeaders(resultData.summary_statistics)" :key="stat">{{ stat }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(stats, column) in resultData.summary_statistics" :key="column">
-                  <td>{{ column }}</td>
-                  <td v-for="stat in getSummaryStatsHeaders(resultData.summary_statistics)" :key="stat">{{ stats[stat] }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="resultData && resultData.test_results" class="result-container">
+            <h4>Test Results</h4>
+            <div class="table-container">
+              <table class="result-table">
+                <thead>
+                  <tr>
+                    <th>Parameter</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(value, key) in resultData.test_results" :key="key">
+                    <td>{{ key }}</td>
+                    <td>{{ value }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-        <div v-if="resultData && resultData.correlation_matrix" class="correlation-matrix">
-          <h4>Correlation Matrix</h4>
-          <div class="table-container">
-            <table class="result-table heatmap-table">
-              <thead>
-                <tr>
-                  <th> </th>
-                  <th v-for="(value, key) in resultData.correlation_matrix" :key="key">{{ key }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, rowKey) in resultData.correlation_matrix" :key="rowKey">
-                  <td>{{ rowKey }}</td>
-                  <td v-for="(value, colKey) in row" :key="colKey" :style="{ backgroundColor: getHeatmapColor(value) }">{{ value.toFixed(2) }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="resultData && resultData.distribution_parameters" class="distribution-parameters">
+            <h4>Distribution Parameters</h4>
+            <div class="table-container">
+              <table class="result-table">
+                <thead>
+                  <tr>
+                    <th>Parameter</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(value, key) in resultData.distribution_parameters" :key="key">
+                    <td>{{ key}}</td>
+                    <td>{{ value }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-        <div v-if="resultData && resultData.p_value_matrix" class="p-value-matrix">
-          <h4>P-Value Matrix</h4>
-          <div class="table-container">
-            <table class="result-table">
-              <thead>
-                <tr>
-                  <th> </th>
-                  <th v-for="(value, key) in resultData.p_value_matrix" :key="key">{{ key }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, rowKey) in resultData.p_value_matrix" :key="rowKey">
-                  <td>{{ rowKey }}</td>
-                  <td v-for="(value, colKey) in row" :key="colKey">{{ value.toFixed(3) }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="resultData && resultData.correlation_matrix" class="correlation-matrix">
+            <h4>Correlation Matrix</h4>
+            <div class="table-container">
+              <table class="result-table heatmap-table">
+                <thead>
+                  <tr>
+                    <th> </th>
+                    <th v-for="(value, key) in resultData.correlation_matrix" :key="key">{{ key }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, rowKey) in resultData.correlation_matrix" :key="rowKey">
+                    <td>{{ rowKey }}</td>
+                    <td v-for="(value, colKey) in row" :key="colKey" :style="{ backgroundColor: getHeatmapColor(value) }">{{ value.toFixed(2) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-        <div v-if="resultData && resultData.group_summary" class="group-summary">
-          <h4>Group Summary</h4>
-          <div class="table-container">
-            <table class="result-table">
-              <thead>
-                <tr>
-                  <th>Group</th>
-                  <th v-for="stat in getSummaryStatsHeaders(resultData.group_summary)" :key="stat">{{ stat }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(stats, group) in resultData.group_summary" :key="group">
-                  <td>{{ group }}</td>
-                  <td v-for="stat in getSummaryStatsHeaders(resultData.group_summary)" :key="stat">{{ stats[stat] }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="resultData && resultData.p_value_matrix" class="p-value-matrix">
+            <h4>P-Value Matrix</h4>
+            <div class="table-container">
+              <table class="result-table">
+                <thead>
+                  <tr>
+                    <th> </th>
+                    <th v-for="(value, key) in resultData.p_value_matrix" :key="key">{{ key }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, rowKey) in resultData.p_value_matrix" :key="rowKey">
+                    <td>{{ rowKey }}</td>
+                    <td v-for="(value, colKey) in row" :key="colKey">{{ value.toFixed(3) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-        <div v-if="resultData && resultData.post_hoc && resultData.post_hoc.results.length" class="post-hoc-analysis">
-          <h4>Post Hoc Analysis ({{ resultData.post_hoc.test }})</h4>
-          <div class="table-container">
-            <table class="result-table">
-              <thead>
-                <tr>
-                  <th v-for="(value, key) in resultData.post_hoc.results[0]" :key="key">{{ key }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(result, index) in resultData.post_hoc.results" :key="index">
-                  <td v-for="(value, key) in result" :key="key">{{ value }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="resultData && resultData.group_summary" class="group-summary">
+            <h4>Group Summary</h4>
+            <div class="table-container">
+              <table class="result-table">
+                <thead>
+                  <tr>
+                    <th>Group</th>
+                    <th v-for="stat in getSummaryStatsHeaders(resultData.group_summary)" :key="stat">{{ stat }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(stats, group) in resultData.group_summary" :key="group">
+                    <td>{{ group }}</td>
+                    <td v-for="stat in getSummaryStatsHeaders(resultData.group_summary)" :key="stat">{{ stats[stat] }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div v-if="resultData && resultData.post_hoc && resultData.post_hoc.results.length" class="post-hoc-analysis">
+            <h4>Post Hoc Analysis ({{ resultData.post_hoc.test }})</h4>
+            <div class="table-container">
+              <table class="result-table">
+                <thead>
+                  <tr>
+                    <th v-for="(value, key) in resultData.post_hoc.results[0]" :key="key">{{ key }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(result, index) in resultData.post_hoc.results" :key="index">
+                    <td v-for="(value, key) in result" :key="key">{{ value }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div v-if="resultData && resultData.histogram_data && resultData.distribution_data" class="distribution-plot">
+            <h4>Distribution Plot</h4>
+            <line-chart :histogram-data="resultData.histogram_data" :distribution-data="resultData.distribution_data"></line-chart>
           </div>
         </div>
       </div>
@@ -247,18 +268,17 @@
 
 <script>
 import { nextTick } from 'vue';
-import { CDropdown, CDropdownToggle, CDropdownMenu, CDropdownItem } from '@coreui/vue';
+import Dropdown from 'primevue/dropdown';
 import MultiSelect from 'primevue/multiselect';
 import axios from '@/axios.js'; // Path to the axios.js file
+import LineChart from '@/components/LineChart.vue'; // Import the LineChart component
 
 export default {
   name: 'statisticalAnalysis',
   components: {
-    CDropdown,
-    CDropdownToggle,
-    CDropdownMenu,
-    CDropdownItem,
     MultiSelect,
+    Dropdown,
+    LineChart, // Register the LineChart component
   },
   props: {
     tests: {
@@ -276,6 +296,7 @@ export default {
   },
   data() {
     return {
+      selectedTestOption: null, // To store the selected option from dropdown
       selectedTest: null,
       selectedTestGroup: null,
       isCollapsed: false,
@@ -287,11 +308,14 @@ export default {
         'Parametric Tests': [],
         'Non-Parametric Tests': [],
         'Correlation Tests': [],
-      }
+        'Distribution Tests': [], // Added group for distribution tests
+      },
+      groupedTestOptions: [],
     };
   },
   created() {
     this.groupTests();
+    this.prepareGroupedTestOptions();
   },
   methods: {
     groupTests() {
@@ -302,11 +326,26 @@ export default {
           this.groupedTests['Non-Parametric Tests'].push(test);
         } else if (['Correlation'].includes(test._name)) {
           this.groupedTests['Correlation Tests'].push(test);
+        } else if (['KolmogorovSmirnovTest'].includes(test._name)) {
+          this.groupedTests['Distribution Tests'].push(test);
         }
       });
 
       Object.keys(this.groupedTests).forEach(group => {
         this.groupCollapsed[group] = true;
+      });
+    },
+    prepareGroupedTestOptions() {
+      this.groupedTestOptions = Object.keys(this.groupedTests).map(group => {
+        return {
+          group: group,
+          tests: this.groupedTests[group].map(test => {
+            return {
+              name: test._name,
+              test: test,
+            };
+          }),
+        };
       });
     },
     toggleCollapse() {
@@ -316,46 +355,30 @@ export default {
       this.isLeftPanelCollapsed = !this.isLeftPanelCollapsed;
     },
     toggleGroup(groupName) {
-      Object.keys(this.groupCollapsed).forEach(group => {
-        if (group !== groupName) {
-          this.groupCollapsed[group] = true;
-        }
-      });
-      this.groupCollapsed[groupName] = !this.groupCollapsed[groupName];
-
-      if (this.groupCollapsed[groupName]) {
-        this.selectedTest = null;
-        this.selectedTestGroup = null;
-      }
+      this.$set(this.groupCollapsed, groupName, !this.groupCollapsed[groupName]);
     },
-    selectTest(test, groupName) {
-      this.selectedTest = test;
-      this.selectedTestGroup = groupName;
+    selectTest() {
+      this.selectedTest = this.selectedTestOption.test;
+      console.log("Selected Test: ", this.selectedTest);
     },
     setProperty(index, value) {
-      const property = this.selectedTest._properties[index];
-      if (property.isArray) {
-        property.value = value;
-        property.isValid = value.length > 0;
-      } else {
-        property.value = value;
-        property.isValid = value !== null && value !== undefined && value !== '';
-      }
+      this.selectedTest.updateProperty(index, value);
+      console.log("Updated Property: ", this.selectedTest._properties[index]);
       this.testUpdated();
     },
     setPropertyByName(name, value) {
       const property = this.selectedTest._properties.find(prop => prop.name === name);
       if (property) {
-        property.value = value;
-        property.isValid = value !== null && value !== undefined && value !== '';
+        this.selectedTest.updateProperty(this.selectedTest._properties.indexOf(property), value);
+        console.log("Updated Property By Name: ", property);
         this.testUpdated();
       }
     },
     setGroupRepresentation(value) {
       const property = this.selectedTest._properties.find(prop => prop.name === 'group_representation');
       if (property) {
-        property.value = value;
-        property.isValid = value !== null && value !== undefined && value !== '';
+        this.selectedTest.updateProperty(this.selectedTest._properties.indexOf(property), value);
+        console.log("Updated Group Representation: ", property);
         this.testUpdated();
       }
     },
@@ -422,7 +445,10 @@ export default {
       this.setProperty(index, value);
     },
     isFormValid() {
-      return this.selectedTest && this.selectedTest.isValid();
+      if (!this.selectedTest || !this.selectedTest._properties) return false;
+      const isValid = this.selectedTest.isValid();
+      console.log("Form Valid: ", isValid, " for test ", this.selectedTest._name);
+      return isValid;
     },
     async submitTest() {
       this.isLoading = true;
@@ -443,7 +469,7 @@ export default {
       };
 
       try {
-        const response = await axios.post('/stat', requestBody, {
+        const response = await axios.post(this.selectedTest._name === 'KolmogorovSmirnovTest' ? '/goodFit' : '/stat', requestBody, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -476,6 +502,16 @@ export default {
       const lightness = 1 - intensity;
       const hue = value > 0 ? 120 : 0; // 120 for green, 0 for red
       return `hsl(${hue}, 100%, ${lightness * 80 + 20}%)`;
+    },
+    getParameterLabel(key) {
+      switch (key) {
+        case 0:
+          return 'Location (Mean)';
+        case 1:
+          return 'Scale (Standard Deviation)';
+        default:
+          return `Shape Parameter ${key}`;
+      }
     }
   }
 };
@@ -535,13 +571,20 @@ export default {
 }
 
 .left-panel {
-  width: 35%;
-  padding: 20px;
+  width: 25%;
+  display: flex;
+  justify-content: center;
   border-right: 1px solid #ddd;
   background-color: #f9f9f9;
   position: relative;
-  max-height: calc(100vh - 100px); /* Adjust height based on your header/footer size */
+  max-height: 60vh; /* Adjust height based on your header/footer size */
   overflow-y: auto;
+}
+
+.left-panel-content {
+  width: 100%;
+  max-width: 300px;
+  padding: 20px;
 }
 
 .centered-section {
@@ -560,12 +603,16 @@ export default {
   gap: 15px;
 }
 
-.main-output {
-  flex-grow: 1;
+.main-output-container {
+  width: 75%;
   padding: 20px;
-  background-color: #fff;
+  max-height: 60vh; /* Adjust height based on your header/footer size */
   overflow-y: auto;
-  max-height: calc(100vh - 100px); /* Adjust height based on your header/footer size */
+}
+
+.main-output {
+  background-color: #fff;
+  padding-bottom: 20px;
 }
 
 .main-output.expanded {
@@ -592,30 +639,60 @@ export default {
   margin: 0;
 }
 
-.row {
+.test-dropdown .group-item {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-direction: column;
 }
 
-.test-button {
-  flex: 1 1 30%;
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-toggle {
   background-color: #007bff;
   color: white;
-  padding: 10px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 5px;
   cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.3s ease;
+  border-radius: 5px;
+  font-size: 16px;
 }
 
-.test-button:hover {
+.dropdown-toggle:hover {
   background-color: #0056b3;
-  transform: scale(1.05);
 }
 
-.test-button.selected {
-  background-color: #0056b3;
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  background-color: #f9f9f9;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  z-index: 1;
+  margin-top: 5px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.dropdown-menu.show {
+  display: block;
+}
+
+.dropdown-item {
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background-color: #ddd;
+}
+
+.nested-dropdown {
+  padding-left: 20px;
+}
+
+.nested-dropdown-item {
+  padding: 5px 0;
 }
 
 .property-list {
@@ -742,5 +819,16 @@ export default {
 
 .table-container::-webkit-scrollbar-track {
   background-color: #f1f1f1;
+}
+
+/* Custom styles for smaller dropdowns */
+.small-dropdown {
+  width: 100%;
+  max-width: 300px;
+}
+
+.small-input {
+  width: 100%;
+  max-width: 300px;
 }
 </style>

@@ -35,7 +35,7 @@ import { mapActions, mapGetters } from 'vuex';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import statisticalAnalysis from '../components/statisticalAnalysis.vue';
-import { OneSampleTTest, IndependentTwoSampleTTest, PairedSampleTTest, KruskalWallisTest, MannWhitneyUTest, OneWayANOVA, Correlation } from '../classes/StatisticalModel';
+import { OneSampleTTest,KolmogorovSmirnovTest, IndependentTwoSampleTTest, PairedSampleTTest, KruskalWallisTest, MannWhitneyUTest, OneWayANOVA, Correlation } from '../classes/StatisticalModel';
 import axios from 'axios';
 
 export default {
@@ -51,7 +51,7 @@ export default {
     return {
       activeInstanceIndex: 0,
       stats: [
-        [new OneSampleTTest(), new IndependentTwoSampleTTest(), new PairedSampleTTest(), new KruskalWallisTest(), new MannWhitneyUTest(), new OneWayANOVA(), new Correlation()]
+        [new OneSampleTTest(), new IndependentTwoSampleTTest(), new PairedSampleTTest(), new KruskalWallisTest(), new MannWhitneyUTest(), new OneWayANOVA(), new Correlation(), new KolmogorovSmirnovTest()]
       ],
     };
   },
@@ -64,7 +64,7 @@ export default {
   methods: {
     ...mapActions(['setLocalDataInstances', 'addLocalDataInstance', 'deleteLocalDataInstance', 'editLocalDataInstance']),
     addNewStatCard() {
-      this.stats.push([new OneSampleTTest(), new IndependentTwoSampleTTest(), new PairedSampleTTest(), new OneWayANOVA(), new Correlation()]);
+      this.stats.push([new OneSampleTTest(), new IndependentTwoSampleTTest(), new PairedSampleTTest(), new OneWayANOVA(), new Correlation(), new KolmogorovSmirnovTest()]);
     },
     removeStatsCard(index) {
       this.stats.splice(index, 1);

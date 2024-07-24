@@ -16,14 +16,13 @@
         <div class="user-dataset-container">
           <UserDataset :data="localDataInstances[0].data" />
         </div>
-
         <div class="plots-container">
           <div v-for="(plotList, plotIndex) in plots" :key="plotIndex" class="plot-card">
             <dataVisuals
               :plots="plotList"
               :data="localDataInstances[0].data"
-              :numericalColumns="numericalColumns"
-              :categoricalColumns="categoricalColumns"
+              :numericalColumns="getColumnNamesByType(localDataInstances[0], ['numeric', 'numeric binary'])"
+              :categoricalColumns="getColumnNamesByType(localDataInstances[0], ['categorical','categorical binary' ])"
               :variables="localDataInstances[0].data[0]"
               @deletePlot="() => removePlotCard(plotIndex)"
               @updatePlot="plot => { console.log(plot); }"
@@ -74,6 +73,7 @@ import dataVisuals from '../components/dataVisuals.vue';
 import { getColumnNamesByType } from '../utils/commonFunctions';
 import axios from 'axios';
 
+
 export default {
   name: 'DataUpload_new',
   components: {
@@ -105,6 +105,9 @@ export default {
     dropMessage() {
       return 'Drag & Drop a CSV file here';
     },
+  },
+  created() {
+    this.getColumnNamesByType = getColumnNamesByType;
   },
   methods: {
     ...mapActions(['setLocalDataInstances', 'addLocalDataInstance', 'deleteLocalDataInstance', 'editLocalDataInstance']),
@@ -152,17 +155,14 @@ export default {
     createNewInstance({ data, name, dataTypes }) {
       this.setLocalDataInstances([{
         data: JSON.parse(JSON.stringify(data)),
+        testData:[],
         numdisplayedRows: 5,
         totalRows: data.length - 1,
         loadingNewInstance: false,
         name: name,
         dataTypes: JSON.parse(JSON.stringify(dataTypes)),
-        modelInfo: null,
         workflow: [],
-        histWf_isCollapsed: true,
-        historicalWorkflow: [],
         isCollapsed: false,
-        isinbuildingModelPhase: false,
       }]);
       this.creatingInstance = false;
       this.numericalColumns = getColumnNamesByType(this.localDataInstances[0], ['numeric', 'numeric binary']);
