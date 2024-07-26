@@ -1,12 +1,11 @@
 <template>
   <div class="sidebar">
-    <h1 class="name">DataPal</h1>
+    <h1 class="name" @click="goHome">DataPal</h1>
     <div class="save-work" @click="saveDataInstances">
-        <CRow >
+        <CRow>
           <i class="fa fa-save"></i>
-          <span>Save Data Instances</span>
         </CRow>
-      </div>
+    </div>
     <div class="menu">
       <div class="menu-item" @click="$emit('goDataUpload')">
         <CRow class="menu-text">
@@ -23,7 +22,7 @@
       <div class="menu-item" @click="$emit('goDataAnalysis')">
         <CRow class="menu-text">
           <i class="fa fa-cogs"></i>
-          <span>Statistical Analysis</span>
+          <span>Data Analysis</span>
         </CRow>
       </div>
       <div class="menu-item" @click="$emit('goModelCreation')">
@@ -38,7 +37,6 @@
           <span>Model Evaluation</span>
         </CRow>
       </div>
-
       <router-view />
     </div>
   </div>
@@ -47,17 +45,30 @@
 <script>
 import { CRow } from '@coreui/vue';
 import { mapActions } from 'vuex';
+import { useRouter } from 'vue-router';
 
 export default {
   name: 'ProjectManagerBar',
+  setup() {
+    const router = useRouter();
+
+    const goHome = () => {
+      router.push('/');
+    };
+
+    return {
+      goHome,
+    };
+  },
   methods: {
-    ...mapActions(['fetchLocalDataInstances', 'saveLocalDataInstances']),
+    ...mapActions(['loadProject', 'saveLocalDataInstances']),
     saveDataInstances() {
+      console.log("sssss")
       this.saveLocalDataInstances();
     }
   },
   async created() {
-    await this.fetchLocalDataInstances();
+    await this.loadProject();
   }
 };
 </script>
@@ -70,8 +81,7 @@ export default {
   align-items: center;
   width: 10%; /* Increased width */
   height: 100%;
-  background-color: #e0e7ff;
-  color: #2f3640;
+  background-color: #263c55;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), 0 12px 30px rgba(0, 0, 0, 0.15);
   box-sizing: border-box;
   overflow-y: auto;
@@ -86,9 +96,10 @@ export default {
 
 .sidebar .name {
   font-size: 200%; /* Increased font size */
-  margin-bottom: 50px;
+  margin-bottom: 20px;
   font-weight: 600;
-  color: #2f3640;
+  color: #007bff;
+  cursor: pointer; /* Add cursor pointer */
 }
 
 .menu {
@@ -105,49 +116,41 @@ export default {
   margin: 10px 0; /* Increased margin */
   border-radius: 8px;
   transition: all 0.3s ease;
-  color: #2f3640;
+  color: #c2cbd5;
   cursor: pointer;
 }
 
 .menu-item i {
-  font-size: 100%; /* Increased font size */
+  font-size: 150%; /* Increased font size */
 }
 
 .menu-item span {
   font-size: 100%; /* Increased font size */
+  font-weight: 600;
 }
 
 .menu-item:hover {
-  background-color: #000;
+  background-color: #455a72;
   color: #fff;
 }
 
-
-
 .save-work {
+  margin-bottom: 50px;
   display: flex;
   align-items: center;
   padding: 20px; /* Increased padding */
   margin: 10px 0; /* Increased margin */
-
-  color: #2f3640;
+  color: #a4c5e8;
   cursor: pointer;
 }
 
-.save-work  i {
-  font-size: 100%; /* Increased font size */
+.save-work i {
+  font-size: 200%; /* Increased font size */
 }
 
-.save-work  span {
-  font-size: 100%; /* Increased font size */
+.save-work:hover {
+  color: #007bff;
 }
-
-.save-work :hover {
-  border-radius: 20px;
-  border: 5px solid #0b0000;
-}
-
-
 
 .menu-text {
   display: flex;

@@ -11,7 +11,7 @@
       <div class="left-panel">
         <div class="left-panel-content">
           <div v-if="groupedTestOptions.length > 0" class="info-section">
-            <p>Start by selecting a test type:</p>
+            <p class = "property-description">Start by selecting a test type:</p>
             <Dropdown 
               v-model="selectedTestOption" 
               :options="groupedTestOptions" 
@@ -35,7 +35,6 @@
             </Dropdown>
           </div>
           <div v-if="selectedTest && selectedTest._properties && selectedTest._properties.length > 0" class="test-section">
-            <p>Select properties:</p>
             <div class="property-list column">
               <div v-for="(property, index) in selectedTest._properties" :key="index" class="property-item" v-show="showProperty(property.name)">
                 <div class="property-description">{{ property.desc }}</div>
@@ -118,9 +117,9 @@
       </div>
       <div class="main-output-container">
         <div class="main-output" :class="{ 'expanded': isLeftPanelCollapsed }">
-          <p v-if="!resultData" class="output-placeholder">Results will be displayed here</p>
+          <p v-if="!resultData" class="property-description">Results will be displayed here</p>
           <div v-if="resultData && resultData.summary_statistics" class="summary-statistics">
-            <h4>Summary Statistics</h4>
+            <h4 class="property-description">Summary Statistics</h4>
             <div class="table-container">
               <table class="result-table">
                 <thead>
@@ -145,7 +144,7 @@
             </div>
           </div>
           <div v-if="resultData && resultData.test_results" class="result-container">
-            <h4>Test Results</h4>
+            <h4 class="property-description">Test Results</h4>
             <div class="table-container">
               <table class="result-table">
                 <thead>
@@ -164,7 +163,7 @@
             </div>
           </div>
           <div v-if="resultData && resultData.distribution_parameters" class="distribution-parameters">
-            <h4>Distribution Parameters</h4>
+            <h4 class="property-description">Distribution Parameters</h4>
             <div class="table-container">
               <table class="result-table">
                 <thead>
@@ -183,7 +182,7 @@
             </div>
           </div>
           <div v-if="resultData && resultData.correlation_matrix" class="correlation-matrix">
-            <h4>Correlation Matrix</h4>
+            <h4 class="property-description">Correlation Matrix</h4>
             <div class="table-container">
               <table class="result-table heatmap-table">
                 <thead>
@@ -202,7 +201,7 @@
             </div>
           </div>
           <div v-if="resultData && resultData.p_value_matrix" class="p-value-matrix">
-            <h4>P-Value Matrix</h4>
+            <h4 class="property-description">P-Value Matrix</h4>
             <div class="table-container">
               <table class="result-table">
                 <thead>
@@ -221,7 +220,7 @@
             </div>
           </div>
           <div v-if="resultData && resultData.group_summary" class="group-summary">
-            <h4>Group Summary</h4>
+            <h4 class = "property-description">Group Summary</h4>
             <div class="table-container">
               <table class="result-table">
                 <thead>
@@ -240,7 +239,7 @@
             </div>
           </div>
           <div v-if="resultData && resultData.post_hoc && resultData.post_hoc.results.length" class="post-hoc-analysis">
-            <h4>Post Hoc Analysis ({{ resultData.post_hoc.test }})</h4>
+            <h4 class = "property-description">Post Hoc Analysis ({{ resultData.post_hoc.test }})</h4>
             <div class="table-container">
               <table class="result-table">
                 <thead>
@@ -524,7 +523,7 @@ export default {
   width: 100%;
   font-family: 'Roboto', sans-serif;
   margin-bottom: 20px;
-  background: #f4f4f9;
+  background: #5f748e;
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
@@ -534,8 +533,8 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background-color: #007bff;
-  color: white;
+  background-color: #71ace3;
+  color: rgb(0, 0, 0);
   cursor: pointer;
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
@@ -574,9 +573,10 @@ export default {
   width: 25%;
   display: flex;
   justify-content: center;
-  border-right: 1px solid #ddd;
-  background-color: #f9f9f9;
+  border-right: 5px solid #0f151a;
+  background: #5f748e;
   position: relative;
+  min-height: 10vh;
   max-height: 60vh; /* Adjust height based on your header/footer size */
   overflow-y: auto;
 }
@@ -593,7 +593,6 @@ export default {
   margin-top: 20px;
   position: sticky;
   bottom: 0;
-  background-color: #f9f9f9;
   padding: 10px 0;
 }
 
@@ -611,8 +610,9 @@ export default {
 }
 
 .main-output {
-  background-color: #fff;
+  background: #5f748e;
   padding-bottom: 20px;
+  border-radius: 10px;
 }
 
 .main-output.expanded {
@@ -629,7 +629,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 10px;
-  background-color: #e9ecef;
+  background-color: #263c55;
   border-radius: 5px;
   margin-bottom: 10px;
   cursor: pointer;
@@ -637,6 +637,7 @@ export default {
 
 .group-header h3 {
   margin: 0;
+  color: #007bff;
 }
 
 .test-dropdown .group-item {
@@ -709,7 +710,7 @@ export default {
 .property-description {
   margin-bottom: 5px;
   font-weight: bold;
-  color: #333;
+  color: #ffffff;
 }
 
 .property-options {
@@ -729,7 +730,7 @@ export default {
 
 .submit-button {
   padding: 10px 20px;
-  background-color: #007bff;
+  background-color: #010912;
   color: white;
   border: none;
   border-radius: 5px;
@@ -759,16 +760,15 @@ export default {
 
 .result-container {
   padding: 20px;
-  border: 1px solid #ddd;
+  border: 1px solid #20272e;
   border-radius: 5px;
-  background-color: #ffffff;
 }
 
 .result-container h3,
 .result-container h4 {
   margin: 0 0 10px;
   padding-bottom: 5px;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid #007bff;
 }
 
 .result-table {
@@ -784,17 +784,19 @@ export default {
 .result-table th,
 .result-table td {
   padding: 10px;
-  border: 1px solid #ddd;
+  border: 1px solid #007bff;
   text-align: left;
 }
 
 .result-table th {
-  background-color: #f2f2f2;
+  background-color: #263c55;
+  color: #ffffff;
   font-weight: bold;
 }
 
 .result-table td {
-  background-color: #fafafa;
+  background-color: #041727;
+  color: #ffffff;
 }
 
 .heatmap-table td {

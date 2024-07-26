@@ -3,7 +3,9 @@
     <div class="main-content">
       <div v-if="localDataInstances.length > 0">
         <div class="user-dataset-container">
-          <UserDataset :data="localDataInstances[0].data" />
+          <div class="user-dataset">
+            <UserDataset :data="localDataInstances[0].data" />
+          </div>
         </div>
 
         <div class="stats-container">
@@ -35,7 +37,7 @@ import { mapActions, mapGetters } from 'vuex';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import statisticalAnalysis from '../components/statisticalAnalysis.vue';
-import { OneSampleTTest,KolmogorovSmirnovTest, IndependentTwoSampleTTest, PairedSampleTTest, KruskalWallisTest, MannWhitneyUTest, OneWayANOVA, Correlation } from '../classes/StatisticalModel';
+import { OneSampleTTest, KolmogorovSmirnovTest, IndependentTwoSampleTTest, PairedSampleTTest, KruskalWallisTest, MannWhitneyUTest, OneWayANOVA, Correlation } from '../classes/StatisticalModel';
 import axios from 'axios';
 
 export default {
@@ -101,25 +103,36 @@ export default {
 
 <style scoped>
 .main-layout {
-  background-color: #f0f2f5;
+  background-color: #031525;
   display: flex;
   justify-content: center;
 }
 
 .main-content {
   width: 100%;
-  background: #ffffff;
-  padding: 20px;
+  background-color: #031525;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   border-radius: 10px;
   transition: all 0.3s ease;
 }
 
 .user-dataset-container {
+  background-color: #263c55;
+  margin-bottom: 100px;
   display: flex;
   justify-content: center;
-  margin-bottom: 20px;
-  height: 500px;
+  align-items: center; /* Vertically center the content */
+  padding: 40px 20px; /* Add padding top and bottom */
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-dataset {
+  width: 95%;
+  background-color: #031525;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  overflow: auto;
 }
 
 .stats-container {
@@ -133,7 +146,6 @@ export default {
   border: 1px solid #ccc;
   border-radius: 8px;
   padding: 15px;
-  background-color: #fefefe;
   transition: box-shadow 0.3s ease;
 }
 
@@ -148,7 +160,8 @@ export default {
 }
 
 .add-stat-button {
-  background-color: #28a745;
+  background-color: #354657;
+
   color: #fff;
   border: none;
   border-radius: 5px;
@@ -162,7 +175,7 @@ export default {
 }
 
 .add-stat-button:hover {
-  background-color: #218838;
+  background-color: #0056b3;
   transform: translateY(-3px);
 }
 </style>

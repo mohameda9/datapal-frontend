@@ -4,7 +4,9 @@
       <section id="data-upload">
         <div class="upload-card" @dragover.prevent @dragenter.prevent @drop="handleFileDrop" @click="$refs.fileInput.click()">
           <p v-if="!parsing">{{ dropMessage }}</p>
-          <div v-else class="spinner-border" role="status"></div>
+          <div v-else class="loading-line-container">
+            <div class="loading-line"></div>
+          </div>
           <input type="file" class="visually-hidden" ref="fileInput" @change="handleFileChange" accept=".csv">
         </div>
         <div v-if="uploadError" class="alert alert-danger mt-3 text-center">
@@ -53,9 +55,12 @@
             <label :for="column" class="column-label">{{ column }}</label>
           </div>
         </div>
+        <div v-if="submitting" class="loading-bar-container">
+          <div class="loading-bar"></div>
+        </div>
         <div class="dialog-footer">
-          <Button label="Cancel" text severity="secondary" @click="cancelDataUpload()" />
-          <Button label="Submit" icon="pi pi-check" @click="submitDataUpload()" />
+          <Button label="Cancel" text severity="secondary" @click="cancelDataUpload()" :disabled="submitting" />
+          <Button label="Submit" icon="pi pi-check" @click="submitDataUpload()" :disabled="submitting" />
         </div>
       </Dialog>
     </div>
@@ -63,7 +68,7 @@
 </template>
 
 <script>
-import { mapActions, mapGetters } from 'vuex';
+import { mapActions, mapGetters, mapMutations } from 'vuex';
 import ProjectManagerBar from '../components/ProjectManagerBar.vue';
 import UserDataset from '../components/UserDataset.vue';
 import { Histogram, BarPlot, BoxWhiskerPlot, ScatterPlot } from '../classes/Visualization';
@@ -71,8 +76,6 @@ import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import dataVisuals from '../components/dataVisuals.vue';
 import { getColumnNamesByType } from '../utils/commonFunctions';
-import axios from 'axios';
-
 
 export default {
   name: 'DataUpload_new',
@@ -95,10 +98,11 @@ export default {
       ],
       numericalColumns: [],
       categoricalColumns: [],
+      submitting: false,
     };
   },
   computed: {
-    ...mapGetters(['getLocalDataInstances']),
+    ...mapGetters(['getLocalDataInstances', 'getUser', 'getCurrentProject']),
     localDataInstances() {
       return this.getLocalDataInstances;
     },
@@ -110,52 +114,65 @@ export default {
     this.getColumnNamesByType = getColumnNamesByType;
   },
   methods: {
-    ...mapActions(['setLocalDataInstances', 'addLocalDataInstance', 'deleteLocalDataInstance', 'editLocalDataInstance']),
+    ...mapActions([  'addLocalDataInstance', 'deleteLocalDataInstance', 'editLocalDataInstance']),
+    ...mapMutations(['setLocalDataInstances']),
+
+
+
     handleFileChange(event) {
       const selectedFile = event.target.files[0];
       this.handleFile(selectedFile);
       this.resetFileInput();
     },
+    
     handleFileDrop(event) {
       event.preventDefault();
       const droppedFile = event.dataTransfer.files[0];
       this.handleFile(droppedFile);
     },
+    
     async handleFile(file) {
       if (file && file.type === 'text/csv') {
         this.file = file;
         this.uploadError = '';
         this.parsing = true;
+        
+        // Clear existing data before reading new CSV file
+        this.setLocalDataInstances([]);
+        
         this.readCSV(file);
       } else {
         this.file = null;
         this.uploadError = 'Please choose a valid CSV file.';
       }
-      this.parsing = false;
-      this.dataloadView = true;
     },
+    
     readCSV(file) {
       const reader = new FileReader();
       reader.onload = (e) => {
         const csv = e.target.result;
         this.parseCSV(csv);
+        this.parsing = false;
+        this.dataloadView = true;
       };
       reader.readAsText(file);
     },
+    
     parseCSV(csv) {
       const rows = csv.trim().split(/\r?\n/);
       const headers = rows[0].split(',');
-
       const data = rows.slice(1).map(row => row.split(','));
 
       const dataTypes = this.determineDataTypes(data, headers);
       this.convertNumericColumns(data, dataTypes);
       this.createNewInstance({ data: [headers, ...data], name: "original", dataTypes });
     },
+    
     createNewInstance({ data, name, dataTypes }) {
+      console.log("1")
       this.setLocalDataInstances([{
         data: JSON.parse(JSON.stringify(data)),
-        testData:[],
+        testData: [],
         numdisplayedRows: 5,
         totalRows: data.length - 1,
         loadingNewInstance: false,
@@ -164,10 +181,13 @@ export default {
         workflow: [],
         isCollapsed: false,
       }]);
+      console.log("2")
+
       this.creatingInstance = false;
       this.numericalColumns = getColumnNamesByType(this.localDataInstances[0], ['numeric', 'numeric binary']);
       this.categoricalColumns = getColumnNamesByType(this.localDataInstances[0], ['categorical', 'categorical binary']);
     },
+    
     determineDataTypes(data, headers) {
       const dataTypes = {};
       headers.forEach((header, index) => {
@@ -175,6 +195,7 @@ export default {
       });
       return dataTypes;
     },
+    
     determineDataTypeForColumn(data, columnIndex) {
       let numeric = true;
       const uniqueValues = new Set();
@@ -190,6 +211,7 @@ export default {
       }
       return numeric ? 'numeric' : 'categorical';
     },
+    
     convertNumericColumns(data, dataTypes) {
       for (let i = 0; i < data.length; i++) {
         for (let j = 0; j < data[i].length; j++) {
@@ -200,7 +222,9 @@ export default {
         }
       }
     },
-    submitDataUpload() {
+    
+    async submitDataUpload() {
+      this.submitting = true;
       const instance = this.localDataInstances[0];
       this.columnsTodelete.forEach(column => {
         const colIndex = instance.data[0].indexOf(column);
@@ -210,52 +234,60 @@ export default {
         }
       });
       this.columnsTodelete = [];
+      await this.editLocalDataInstance({ index: 0, newData: instance });
+      this.submitting = false;
       this.dataloadView = false;
-      this.editLocalDataInstance({ index: 0, newData: instance });
     },
+    
     addColumnToDeleteList(column) {
       const dataInstances = this.localDataInstances;
       this.columnsTodelete.push(column);
       delete dataInstances[0].dataTypes[column];
       this.setLocalDataInstances(dataInstances);
     },
+    
     resetFileInput() {
       this.$refs.fileInput.value = null;
     },
+    
     cancelDataUpload() {
       this.dataloadView = false;
       this.setLocalDataInstances([]);
     },
+    
     addNewPlotCard() {
       this.plots.push([new Histogram(), new BarPlot(), new BoxWhiskerPlot(), new ScatterPlot()]);
     },
+    
     removePlotCard(index) {
       this.plots.splice(index, 1);
     },
+    
     handleSubmitPlot(selectedValues) {
       console.log(selectedValues);
     },
-
   },
-
-
 };
 </script>
 
+
 <style scoped>
 .main-layouttt {
-  background-color: #f9f9f9;
   display: flex;
   justify-content: center;
+  
+
 }
 
 .main-content {
   width: 100%;
-  background: #ffffff;
+  background-color: #263c55;
   padding: 20px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
+  border-radius: 30px;
   transition: all 0.3s ease;
+  align-items: center;
+  /* To center horizontally as well */
 }
 
 #data-upload {
@@ -267,12 +299,12 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100%;
-  height: 30px;
+  width: 25%;
+  height: 50px;
   margin: 0 auto;
+  border: 1px solid #007bff;
   border-radius: 12px;
-  background-color: #e0e7ff;
-  border: 2px dashed #4f46e5;
+  background-color: #041727;
   cursor: pointer;
   transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
@@ -286,13 +318,67 @@ export default {
 .upload-card p {
   margin: 0;
   font-size: 1.2rem;
-  color: #4f46e5;
+  color: #007bff;
 }
 
-.spinner-border {
-  width: 3rem;
-  height: 3rem;
-  margin: auto;
+.loading-line-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 9999;
+}
+
+.loading-line {
+  width: 100px;
+  height: 4px;
+  background-color: #4f46e5;
+  animation: loading 1s infinite;
+}
+
+@keyframes loading {
+  0% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(50px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.loading-bar-container {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: #e0e0e0;
+  margin-top: 10px;
+}
+
+.loading-bar {
+  width: 0;
+  height: 100%;
+  background: #4f46e5;
+  animation: loading-bar 3s linear infinite;
+}
+
+@keyframes loading-bar {
+  0% {
+    width: 0;
+  }
+  50% {
+    width: 50%;
+  }
+  100% {
+    width: 100%;
+  }
 }
 
 .data-load-dialog {
@@ -387,17 +473,5 @@ export default {
   transform: translateY(-3px);
 }
 
-.save-button {
-  background-color: #28a745;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  margin-top: 20px;
-}
 
-.save-button:hover {
-  background-color: #218838;
-}
 </style>

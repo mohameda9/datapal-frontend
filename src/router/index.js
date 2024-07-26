@@ -1,18 +1,18 @@
-// src/router/index.js
+// src/router.js
 import { createRouter, createWebHistory } from 'vue-router';
-import DataUpload from '../views/DataUpload.vue';
-import DataManipulation from '../views/DataManipulation.vue';
+import HomePage from '../HomePage.vue';
+import ProjectPage from '../ProjectPage.vue';
 
 const routes = [
   {
-    path: '/DataUpload',
-    name: 'DataUpload',
-    component: DataUpload
+    path: '/',
+    name: 'HomePage',
+    component: HomePage
   },
   {
-    path: '/DataManipulation',
-    name: 'DataManipulation',
-    component: DataManipulation
+    path: '/project',
+    name: 'ProjectPage',
+    component: ProjectPage
   }
 ];
 

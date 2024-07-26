@@ -2,7 +2,7 @@
 
 
 .main-layout {
-  background-color: white;
+  background-color: #031525;
   min-height: 100vh;
   width: 100%;
   display: flex;
@@ -65,23 +65,8 @@
     color: #2c3e50;
 }
 
-.file-drop-area {
-    border: 2px dashed #3498db;
-    padding: 2rem;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 1.5rem; /* Adjust the font size as needed */
-    text-align: center;
-    transition: all 0.3s ease;
-    width: 65%; /* Adjust width as needed */
-    margin: 0 auto; /* Center horizontally */
-    background-color: #ecf0f1;
-}
 
-.file-drop-area:hover {
-    background-color: #dee2e8;
-    border-color: #2980b9;
-}
+
 
 .visually-hidden {
     position: absolute;
@@ -107,7 +92,6 @@
     align-items: center;
     justify-content: center;
 
-    background-color: #ffffff;
 }
 
 
@@ -156,33 +140,33 @@
 }
 
 .instance-container {
-    border: 8px solid #4c9ccd;
+    border: 8px solid #616e77;
+    width: 100%;
     border-radius: 0.5%;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Add shadow for floating effect */
-    background-color: white;
+    background-color: #263c55;
     margin-bottom: 2%;
 }
 
-.header {
+.instance-header {
     display: flex;
     justify-content: center;
     align-items: center;
-    cursor: pointer;
-    background-color: white;
+    color: #007bff;
+    margin-top: 20px;
 }
 
-.header h3 {
+.instance-header h3 {
     font-size: 24px;
     margin-right: 10px;
-    color: #2c3e50;
 }
 
-.header span {
+.instance-header span {
     font-size: 24px;
     transition: transform 0.3s ease;
 }
 
-.header span.collapsed {
+.instance-header span.collapsed {
     transform: rotate(180deg);
 }
 
@@ -235,7 +219,6 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr); /* Adjusts number of items per row */
     gap: 2px; /* Adjusts space between items */
-    background-color: #f5f7fa;
 }
 
 .item {
@@ -248,14 +231,7 @@
     justify-content: space-between;
 }
 
-.file-upload-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    background-color: #f5f7fa;
-    min-height: 100vh;
-}
+
 
 .name-small {
     font-size: 1rem;
@@ -534,8 +510,9 @@ tbody tr:last-child td {
 
 
 .main-container {
-  text-align: left;
-  width: 92%;
+  width: 80%;
+  margin-top: 2%;
   overflow-y: auto;
+  justify-content: center;
 }
 
