@@ -1,60 +1,104 @@
 <template>
-  <div class="main-layout">
+  <div>
+    <div class="tabs">
+      <button :class="{'tab-link': true, 'active': activeTab === 'statistical-analysis'}" @click="activeTab = 'statistical-analysis'">Statistical Analysis</button>
+      <button :class="{'tab-link': true, 'active': activeTab === 'visualization'}" @click="activeTab = 'visualization'">Visualization</button>
+    </div>
     <div class="main-content">
-      <div v-if="localDataInstances.length > 0">
-        <div class="user-dataset-container">
-          <div class="user-dataset">
-            <UserDataset :data="localDataInstances[0].data" />
+      <div v-show="localDataInstances.length > 0">
+        <div v-show="activeTab === 'statistical-analysis'">
+          <!-- Statistical Analysis Content -->
+          <div class="add-button-container">
+            <button class="add-stat-button" @click="openDataInstanceModal('stat')">
+              <span class="pi pi-plus"></span> Add Statistical Test
+            </button>
+          </div>
+          <div  class="combined-card">
+
+            <div class="stat-card" v-for="(statCard, statCardIndex) in statCards">
+              <statisticalAnalysis
+                :tests="statCard.tests"
+                :data="statCard.dataInstance.data"
+                :variables="statCard.dataInstance.data[0]"
+                @deleteTest="removeStatComponent"
+                :testData="statCard.dataInstance.testData"
+              ></statisticalAnalysis>
+            </div>
           </div>
         </div>
-
-        <div class="stats-container">
-          <div v-for="(StatList, statIndex) in stats" :key="statIndex" class="stat-card">
-            <statisticalAnalysis
-              :tests="StatList"
-              :data="localDataInstances[0].data"
-              :variables="localDataInstances[0].data[0]"
-              @deleteTest="removeStatsCard(statIndex)"
-              @submittingTest="handleSubmitStat"
-            ></statisticalAnalysis>
+        <div v-if="activeTab === 'visualization'">
+          <!-- Visualization Content -->
+          <div class="add-button-container">
+            <button class="add-plot-button" @click="openDataInstanceModal('plot')">
+              <span class="pi pi-plus"></span> Add Plot
+            </button>
           </div>
-        </div>
-
-        <div class="add-stat-container">
-          <button class="add-stat-button" @click="addNewStatCard">
-            <span class="pi pi-plus"></span> Add Statistical Test
-          </button>
+          <div  class="combined-card">
+            <div class="plot-card" v-for="(visCard, visCardIndex) in visualizationCards">
+              <dataVisuals
+                :plots="visCard.plots"
+                :data="visCard.dataInstance.data"
+                :numericalColumns="getColumnNamesByType(visCard.dataInstance, ['numeric', 'numeric binary'])"
+                :categoricalColumns="getColumnNamesByType(visCard.dataInstance, ['categorical','categorical binary'])"
+                :variables="visCard.dataInstance.data[0]"
+                @deletePlot="removeVisualizationComponent"
+                @updatePlot="plot => { console.log(plot); }"
+                @submittingPlot="handleSubmitPlot"
+              ></dataVisuals>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- Data Instance Selection Modal -->
+    <Dialog header="Select Data Instance" :visible="showDataInstanceModal" @hide="showDataInstanceModal = false">
+      <Dropdown 
+        v-model="selectedDataInstanceName" 
+        :options="dataInstanceOptions" 
+        placeholder="Select Data Instance" 
+        class="data-instance-dropdown"
+      />
+      <template v-slot:footer>
+        <button @click="confirmDataInstance" class="p-button p-component">
+          Confirm
+        </button>
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script>
-import ProjectManagerBar from '../components/ProjectManagerBar.vue';
 import UserDataset from '../components/UserDataset.vue';
 import { mapActions, mapGetters } from 'vuex';
-import Button from 'primevue/button';
-import Dialog from 'primevue/dialog';
 import statisticalAnalysis from '../components/statisticalAnalysis.vue';
+import dataVisuals from '../components/dataVisuals.vue';
 import { OneSampleTTest, KolmogorovSmirnovTest, IndependentTwoSampleTTest, PairedSampleTTest, KruskalWallisTest, MannWhitneyUTest, OneWayANOVA, Correlation } from '../classes/StatisticalModel';
+import { Histogram, BarPlot, BoxWhiskerPlot, ScatterPlot } from '../classes/Visualization';
 import axios from 'axios';
+import Dropdown from 'primevue/dropdown'; // Import PrimeVue Dropdown
+import Dialog from 'primevue/dialog'; // Import PrimeVue Dialog
+import { getColumnNamesByType } from '../utils/commonFunctions.js';
 
 export default {
   name: 'DataAnalysis',
   components: {
-    ProjectManagerBar,
     UserDataset,
-    Button,
-    Dialog,
-    statisticalAnalysis
+    statisticalAnalysis,
+    dataVisuals,
+    Dropdown,
+    Dialog
   },
   data() {
     return {
-      activeInstanceIndex: 0,
-      stats: [
-        [new OneSampleTTest(), new IndependentTwoSampleTTest(), new PairedSampleTTest(), new KruskalWallisTest(), new MannWhitneyUTest(), new OneWayANOVA(), new Correlation(), new KolmogorovSmirnovTest()]
-      ],
+      activeTab: 'statistical-analysis',
+      statCards: [],
+      visualizationCards: [],
+      showDataInstanceModal: false,
+      selectedDataInstanceName: null,
+      selectedDataInstance: null,
+      isAddingStat: false,
+      isAddingPlot: false
     };
   },
   computed: {
@@ -62,50 +106,89 @@ export default {
     localDataInstances() {
       return this.getLocalDataInstances;
     },
+    dataInstanceOptions() {
+      return this.localDataInstances.map(instance => instance.name || 'Unnamed Data Instance');
+    }
+  },
+  created() {
+    this.getColumnNamesByType = getColumnNamesByType;
   },
   methods: {
     ...mapActions(['setLocalDataInstances', 'addLocalDataInstance', 'deleteLocalDataInstance', 'editLocalDataInstance']),
-    addNewStatCard() {
-      this.stats.push([new OneSampleTTest(), new IndependentTwoSampleTTest(), new PairedSampleTTest(), new OneWayANOVA(), new Correlation(), new KolmogorovSmirnovTest()]);
+    openDataInstanceModal(type) {
+      this.isAddingStat = type === 'stat';
+      this.isAddingPlot = type === 'plot';
+      this.showDataInstanceModal = true;
     },
-    removeStatsCard(index) {
-      this.stats.splice(index, 1);
-    },
-    async handleSubmitStat(statConfig) {
-      console.log(statConfig);
-
-      const dataToSend = {
-        data: this.localDataInstances[this.activeInstanceIndex].data.map(row => ({ columns: row }))
-      };
-      const requestBody = {
-        data: dataToSend,
-        statConfig: statConfig
-      };
-
-      try {
-        const response = await axios.post('/stat', requestBody, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        console.log(response.data);
-        // Update the result data in the respective statisticalAnalysis component
-        this.$refs[`statAnalysis${statConfig.test}`].resultData = response.data;
-
-      } catch (error) {
-        console.error('Error:', error);
+    confirmDataInstance() {
+      if (this.selectedDataInstanceName) {
+        this.selectedDataInstance = this.localDataInstances.find(instance => instance.name === this.selectedDataInstanceName);
+        
+        if (this.isAddingStat) {
+          this.statCards.push( {
+            tests: [new OneSampleTTest(), new IndependentTwoSampleTTest(), new PairedSampleTTest(), new OneWayANOVA(), new Correlation(), new KolmogorovSmirnovTest()],
+            dataInstance: this.selectedDataInstance
+          });
+        } else if (this.isAddingPlot) {
+          this.visualizationCards.push( {
+            plots: [new Histogram(), new BarPlot(), new BoxWhiskerPlot(), new ScatterPlot()],
+            dataInstance: this.selectedDataInstance
+          })
+        }
+        
+        this.selectedDataInstanceName = null; // Reset the selection
+        this.showDataInstanceModal = false; // Close the modal
       }
+
+      console.log(this.statCards)
+    },
+    removeStatComponent() {
+      this.statComponent = null;
+    },
+
+    removeVisualizationComponent() {
+      this.visualizationComponent = null;
+    },
+    handleSubmitPlot(selectedValues) {
+      console.log(selectedValues);
     },
   },
-
 };
 </script>
 
 <style scoped>
-.main-layout {
-  background-color: #031525;
+/* Add styles for the data instance dropdown and modal */
+.data-instance-dropdown {
+  margin-bottom: 20px;
+}
+
+.p-dialog .p-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Existing styles... */
+.tabs {
   display: flex;
   justify-content: center;
+  margin: 20px 0; /* Adjust margin to give some space around tabs */
+}
+
+.tab-link {
+  background-color: #354657;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+  margin: 0 5px;
+}
+
+.tab-link.active {
+  background-color: #0056b3;
+  transform: translateY(-3px);
 }
 
 .main-content {
@@ -118,11 +201,11 @@ export default {
 
 .user-dataset-container {
   background-color: #263c55;
-  margin-bottom: 100px;
+  margin-bottom: 20px;
   display: flex;
   justify-content: center;
-  align-items: center; /* Vertically center the content */
-  padding: 40px 20px; /* Add padding top and bottom */
+  align-items: center;
+  padding: 40px 20px;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
@@ -135,33 +218,36 @@ export default {
   overflow: auto;
 }
 
-.stats-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+.combined-container {
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   margin-bottom: 20px;
 }
 
-.stat-card {
+.combined-card {
+  flex: 1 1 100%;
+  box-sizing: border-box;
+  padding: 10px;
+}
+
+.plot-card, .stat-card {
   border: 1px solid #ccc;
   border-radius: 8px;
-  padding: 15px;
-  transition: box-shadow 0.3s ease;
+  padding: 10px;
+  background-color: #f8f9fa;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.stat-card:hover {
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-}
-
-.add-stat-container {
+.add-button-container {
   display: flex;
   justify-content: center;
   margin-top: 20px;
 }
 
-.add-stat-button {
+.add-plot-button, .add-stat-button {
   background-color: #354657;
-
   color: #fff;
   border: none;
   border-radius: 5px;
@@ -174,7 +260,7 @@ export default {
   transition: background-color 0.3s ease, transform 0.3s ease;
 }
 
-.add-stat-button:hover {
+.add-plot-button:hover, .add-stat-button:hover {
   background-color: #0056b3;
   transform: translateY(-3px);
 }

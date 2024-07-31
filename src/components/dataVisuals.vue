@@ -9,23 +9,19 @@
         </button>
       </div>
 
-
-
       <div v-show="!isCollapsed" class="content">
         <div :class="{ 'left-panel': true, 'hidden': isLeftPanelCollapsed }">
-
           <div v-if="plots.length > 0">
             <div class="info-section">
               <p>Start by selecting a plot type.</p>
               <div class="dataVisual-list">
-                <button
-                  v-for="(plot, idx) in plots"
-                  :key="idx"
-                  @click="selectPlot(plot)"
-                  :class="{ selected: plot === selectedPlot }"
-                >
-                  {{ plot._name }}
-                </button>
+                <Dropdown
+                  v-model="selectedPlot"
+                  :options="plots"
+                  optionLabel="_name"
+                  placeholder="Select a plot type"
+                  @change="selectPlot(selectedPlot)"
+                />
               </div>
             </div>
           </div>
@@ -37,20 +33,13 @@
                 <div v-if="index === 0 || (index > 0 && (selectedPlot?._properties[index-1]?.isValid || selectedPlot?._properties[index-1]?.isOptional))">
                   <div class="property-description">{{ property.desc }}</div>
                   <div v-if="property.expects === 'variables'" class="property-options">
-                    <CDropdown class="variable-dropdown">
-                      <CDropdownToggle color="primary">
-                        {{ property.value || 'Select a variable' }}
-                      </CDropdownToggle>
-                      <CDropdownMenu>
-                        <CDropdownItem
-                          v-for="(variable, idx) in getColumnOptions(property)"
-                          :key="idx"
-                          @click="setProperty(index, variable)"
-                        >
-                          {{ variable }}
-                        </CDropdownItem>
-                      </CDropdownMenu>
-                    </CDropdown>
+                    <Dropdown
+                      v-model="property.value"
+                      :options="getColumnOptions(property)"
+                      placeholder="Select a variable"
+                      class="scrollable-dropdown"
+                      @change="setProperty(index, property.value)"
+                    />
                   </div>
                   <div v-if="property.expects === 'values'" class="property-options">
                     <MultiSelect
@@ -59,6 +48,7 @@
                       :model-value="Array.from(property.value)"
                       @update:model-value="value => setProperty(index, value)"
                       placeholder="Select values"
+                      class="scrollable-dropdown"
                     />
                   </div>
                   <div v-if="property.expects === 'boolean'" class="property-options boolean-property">
@@ -88,11 +78,9 @@
           </div>
         </div>
 
-
-      <button @click="toggleLeftPanel" class="collapse-button">
-            <span v-if ='isLeftPanelCollapsed'>></span>
-            <span v-else ><</span>
-
+        <button @click="toggleLeftPanel" class="collapse-button">
+          <span v-if="isLeftPanelCollapsed">></span>
+          <span v-else><</span>
         </button>
 
         <div class="main-output" :class="{ 'expanded': isLeftPanelCollapsed }">
@@ -105,10 +93,12 @@
   </div>
 </template>
 
+
 <script>
 import { nextTick } from 'vue';
 import { CDropdown, CDropdownToggle, CDropdownMenu, CDropdownItem } from '@coreui/vue';
 import MultiSelect from 'primevue/multiselect';
+import Dropdown from 'primevue/dropdown';
 import { Chart, registerables } from 'chart.js';
 import Plotly from 'plotly.js-dist';
 
@@ -122,6 +112,7 @@ export default {
     CDropdownMenu,
     CDropdownItem,
     MultiSelect,
+    Dropdown // Register the component
   },
   props: {
     plots: {
@@ -190,6 +181,7 @@ export default {
       this.isLeftPanelCollapsed = !this.isLeftPanelCollapsed;
     },
     selectPlot(plot) {
+      console.log(this.selectPlot)
       this.selectedPlot = plot;
       this.plotUpdated();
     },
@@ -753,7 +745,7 @@ export default {
 
 .collapse-button {
   position: absolute;
-
+  right: -10px;
   background: #5d80ca;
   color: #fff;
   border: none;
@@ -767,8 +759,6 @@ export default {
   transition: background 0.3s ease;
   z-index: 1;
 }
-
-
 
 .main-output {
   flex-grow: 1;
@@ -784,25 +774,6 @@ export default {
 .dataVisual-list {
   display: flex;
   flex-direction: column;
-}
-
-.dataVisual-list button {
-  margin: 5px 0;
-  padding: 10px;
-  border: 1px solid #ccc;
-  background-color: #e0f2fe;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.dataVisual-list button.selected,
-.dataVisual-list button:hover {
-  background-color: #a6bfe6;
-  color: #fff;
-  border-color: #3b82f6;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .property-list {

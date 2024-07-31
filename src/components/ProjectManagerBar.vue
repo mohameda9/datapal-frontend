@@ -1,10 +1,16 @@
 <template>
   <div class="sidebar">
     <h1 class="name" @click="goHome">DataPal</h1>
+    <h2 class="active-project">{{ activeProject ? activeProject.name : 'No Active Project' }}</h2>
     <div class="save-work" @click="saveDataInstances">
-        <CRow>
-          <i class="fa fa-save"></i>
-        </CRow>
+      <CRow>
+        <i class="fa fa-save"></i>
+        <span v-if="!isSaving">Save Work</span>
+        <span v-else>Saving...</span>
+      </CRow>
+      <div v-if="isSaving" class="loading-bar-container">
+        <div class="loading-bar"></div>
+      </div>
     </div>
     <div class="menu">
       <div class="menu-item" @click="$emit('goDataUpload')">
@@ -44,11 +50,16 @@
 
 <script>
 import { CRow } from '@coreui/vue';
-import { mapActions } from 'vuex';
+import { mapActions, mapGetters } from 'vuex';
 import { useRouter } from 'vue-router';
 
 export default {
   name: 'ProjectManagerBar',
+  data() {
+    return {
+      isSaving: false
+    };
+  },
   setup() {
     const router = useRouter();
 
@@ -60,11 +71,18 @@ export default {
       goHome,
     };
   },
+  computed: {
+    ...mapGetters(['getCurrentProject']),
+    activeProject() {
+      return this.getCurrentProject;
+    }
+  },
   methods: {
     ...mapActions(['loadProject', 'saveLocalDataInstances']),
-    saveDataInstances() {
-      console.log("sssss")
-      this.saveLocalDataInstances();
+    async saveDataInstances() {
+      this.isSaving = true;
+      await this.saveLocalDataInstances();
+      this.isSaving = false;
     }
   },
   async created() {
@@ -100,6 +118,13 @@ export default {
   font-weight: 600;
   color: #007bff;
   cursor: pointer; /* Add cursor pointer */
+}
+
+.sidebar .active-project {
+  font-size: 120%;
+  margin-bottom: 20px;
+  font-weight: 500;
+  color: #ffffff;
 }
 
 .menu {
@@ -156,5 +181,32 @@ export default {
   display: flex;
   align-items: center;
   width: 100%;
+}
+
+.loading-bar-container {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: #e0e0e0;
+  margin-top: 10px;
+}
+
+.loading-bar {
+  width: 0;
+  height: 100%;
+  background: #4f46e5;
+  animation: loading-bar 3s linear infinite;
+}
+
+@keyframes loading-bar {
+  0% {
+    width: 0;
+  }
+  50% {
+    width: 50%;
+  }
+  100% {
+    width: 100%;
+  }
 }
 </style>

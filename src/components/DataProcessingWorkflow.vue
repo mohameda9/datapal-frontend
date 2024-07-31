@@ -115,6 +115,7 @@ export default {
       this.$emit('execute-workflows', this.localWorkflows, this.index);
     },
     openDetail(index) {
+      console.log('index', this.index)
       this.$emit('open-workflow-detail', index, this.index);
     },
     submitPartition() {

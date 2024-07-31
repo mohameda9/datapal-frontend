@@ -2,9 +2,9 @@
   <div class="main-layout">
     <CCol class="project-manager-bar" md="{ span: 2 }">
       <ProjectManagerBar
-        @goDataProcessing="activePage = 'dataProcessing'"
-        @goDataUpload="activePage = 'dataUpload'"
-        @goDataAnalysis="activePage = 'dataAnalysis'"
+        @goDataProcessing="navigateTo('dataProcessing')"
+        @goDataUpload="navigateTo('dataUpload')"
+        @goDataAnalysis="navigateTo('dataAnalysis')"
       />
     </CCol>
 
@@ -18,8 +18,9 @@
         </div>
 
         <div v-if="localDataInstances.length > 0 && activePage === 'dataProcessing'" class="mt-3">
-          <div v-for="(instance, instanceIndex) in localDataInstances" :key="instanceIndex" class="instance-container">
-            <div class="instance-header">
+          <div v-for="(instance, instanceIndex) in localDataInstances"  :key="instanceIndex" >
+          <div v-if = "instanceIndex >0" class="instance-container">
+            <div  class="instance-header">
               <div class="header-content">
                 <Button
                   label="Create New Instance"
@@ -82,15 +83,16 @@
               <div class="partition-data-modal">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                   <p style="margin: 0; font-weight: bold;">Specify the Train data size:</p>
-                  <input type="number" v-model="splitSize" min="0.5" max="1" step="0.01" placeholder="Enter split size (e.g., 0.8)" style="margin-left: 10px; padding: 5px; border-radius: 5px; border: 1px solid #ced4da;" />
+                  <input type="number" v-model="splitSize" :disabled="metaDataForEditingModal && !metaDataForEditingModal.submittable" min="0.5" max="1" step="0.01" placeholder="Enter split size (e.g., 0.8)" style="margin-left: 10px; padding: 5px; border-radius: 5px; border: 1px solid #ced4da;" />
                 </div>
                 <p style="margin-top: 10px; font-style: italic; color: #6c757d;">Test size: {{ (1 - splitSize).toFixed(2) }}</p>
                 <div class="modal-footer" style="display: flex; justify-content: flex-end; margin-top: 20px;">
-                  <Button label="Submit" icon="pi pi-check" @click="wf_partitionData(splitSize)" />
+                  <Button label="Submit" icon="pi pi-check" @click="wf_partitionData(splitSize)" :disabled="metaDataForEditingModal && !metaDataForEditingModal.submittable" />
                   <Button label="Cancel" icon="pi pi-times" class="p-button-secondary" @click="showPartitionModal = false" style="margin-left: 10px;" />
                 </div>
               </div>
             </Dialog>
+
 
             <div v-show="instance && !instance.isCollapsed">
               <div
@@ -125,6 +127,7 @@
               />
             </div>
           </div>
+          </div>
         </div>
       </div>
     </CCol>
@@ -143,6 +146,9 @@
     :existingNames="localDataInstances.map(instance => instance.name)"
   />
 </template>
+
+
+
 
 <script>
 import myModal from './components/myModal.vue';
@@ -164,6 +170,12 @@ import ScaleColumn from './components/ScaleColumn.vue';
 
 export default {
   name: 'ProjectPage',
+  props: {
+    activePage: {
+      type: String,
+      default: 'dataUpload'
+    }
+  },
   data() {
     return {
       activePage: 'dataUpload',
@@ -222,6 +234,9 @@ export default {
       console.log("aaaa")
       console.log(this.getLocalDataInstances)
       return this.getLocalDataInstances;
+    },
+    activePage() {
+      return this.$route.params.activePage || 'dataUpload';
     }
   },
   methods: {
@@ -231,6 +246,9 @@ export default {
       updatedInstances[instanceIndex].numdisplayedRows += 5;
       this.setLocalDataInstances(updatedInstances);
     },
+    navigateTo(page) {
+    this.$router.push({ name: 'ProjectPage', params: { activePage: page } });
+  },
     columnsWithMissingValues(instance) {
       const columnsWithMissing = [];
       const headers = instance.data[0];
@@ -243,6 +261,7 @@ export default {
       return columnsWithMissing;
     },
     prepareNewInstance(instanceIndex) {
+      console.log(instanceIndex)
       this.ParentInstanceIndex = instanceIndex;
       this.creatingInstance = true;
     },
@@ -377,12 +396,11 @@ export default {
       this.localDataInstances[instanceIndex].workflow = updatedWorkflows;
       this.setLocalDataInstances(this.localDataInstances);
     },
-    openWorkflowDetail(workflowIndex) {
-      console.log(workflowIndex)
+    openWorkflowDetail(workflowIndex, currentInstanceIndex) {
 
-      const workflow = this.localDataInstances[this.currentInstanceIndex].workflow[workflowIndex];
-      this.currentInstanceIndex = this.currentInstanceIndex;
-      this.currentInstance = this.localDataInstances[this.currentInstanceIndex];
+
+      const workflow = this.getLocalDataInstances[currentInstanceIndex].workflow[workflowIndex];
+      this.currentInstance = this.localDataInstances[currentInstanceIndex];
       this.currentWorkflow = workflow;
       this.isEditingWorkflow = true;
       this.editingWorkflowIndex = workflowIndex;

@@ -114,39 +114,37 @@ export default {
     this.getColumnNamesByType = getColumnNamesByType;
   },
   methods: {
-    ...mapActions([  'addLocalDataInstance', 'deleteLocalDataInstance', 'editLocalDataInstance']),
+    ...mapActions([ 'addLocalDataInstance', 'deleteLocalDataInstance', 'editLocalDataInstance']),
     ...mapMutations(['setLocalDataInstances']),
-
-
 
     handleFileChange(event) {
       const selectedFile = event.target.files[0];
       this.handleFile(selectedFile);
       this.resetFileInput();
     },
-    
+
     handleFileDrop(event) {
       event.preventDefault();
       const droppedFile = event.dataTransfer.files[0];
       this.handleFile(droppedFile);
     },
-    
+
     async handleFile(file) {
       if (file && file.type === 'text/csv') {
         this.file = file;
         this.uploadError = '';
         this.parsing = true;
-        
+
         // Clear existing data before reading new CSV file
         this.setLocalDataInstances([]);
-        
+
         this.readCSV(file);
       } else {
         this.file = null;
         this.uploadError = 'Please choose a valid CSV file.';
       }
     },
-    
+
     readCSV(file) {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -157,7 +155,7 @@ export default {
       };
       reader.readAsText(file);
     },
-    
+
     parseCSV(csv) {
       const rows = csv.trim().split(/\r?\n/);
       const headers = rows[0].split(',');
@@ -165,12 +163,16 @@ export default {
 
       const dataTypes = this.determineDataTypes(data, headers);
       this.convertNumericColumns(data, dataTypes);
+
+      // Create both instances: original and working data
       this.createNewInstance({ data: [headers, ...data], name: "original", dataTypes });
+      this.createNewInstance({ data: [headers, ...data], name: "working data", dataTypes });
+      console.log('creating isntances')
+      console.log(this.localDataInstances)
     },
-    
+
     createNewInstance({ data, name, dataTypes }) {
-      console.log("1")
-      this.setLocalDataInstances([{
+      const newInstance = {
         data: JSON.parse(JSON.stringify(data)),
         testData: [],
         numdisplayedRows: 5,
@@ -180,14 +182,17 @@ export default {
         dataTypes: JSON.parse(JSON.stringify(dataTypes)),
         workflow: [],
         isCollapsed: false,
-      }]);
-      console.log("2")
+      };
 
-      this.creatingInstance = false;
-      this.numericalColumns = getColumnNamesByType(this.localDataInstances[0], ['numeric', 'numeric binary']);
-      this.categoricalColumns = getColumnNamesByType(this.localDataInstances[0], ['categorical', 'categorical binary']);
+      const updatedInstances = [...this.localDataInstances, newInstance];
+      this.setLocalDataInstances(updatedInstances);
+
+      if (name === "original") {
+        this.numericalColumns = getColumnNamesByType(newInstance, ['numeric', 'numeric binary']);
+        this.categoricalColumns = getColumnNamesByType(newInstance, ['categorical', 'categorical binary']);
+      }
     },
-    
+
     determineDataTypes(data, headers) {
       const dataTypes = {};
       headers.forEach((header, index) => {
@@ -195,7 +200,7 @@ export default {
       });
       return dataTypes;
     },
-    
+
     determineDataTypeForColumn(data, columnIndex) {
       let numeric = true;
       const uniqueValues = new Set();
@@ -211,18 +216,22 @@ export default {
       }
       return numeric ? 'numeric' : 'categorical';
     },
-    
+
     convertNumericColumns(data, dataTypes) {
       for (let i = 0; i < data.length; i++) {
         for (let j = 0; j < data[i].length; j++) {
           const header = Object.keys(dataTypes)[j];
           if (dataTypes[header].includes('numeric')) {
-            data[i][j] = Number(data[i][j]);
+            if (data[i][j] === '' || isNaN(data[i][j])) {
+              data[i][j] = null; // or NaN, depending on your preference
+            } else {
+              data[i][j] = Number(data[i][j]);
+            }
           }
         }
       }
     },
-    
+
     async submitDataUpload() {
       this.submitting = true;
       const instance = this.localDataInstances[0];
@@ -238,31 +247,31 @@ export default {
       this.submitting = false;
       this.dataloadView = false;
     },
-    
+
     addColumnToDeleteList(column) {
       const dataInstances = this.localDataInstances;
       this.columnsTodelete.push(column);
       delete dataInstances[0].dataTypes[column];
       this.setLocalDataInstances(dataInstances);
     },
-    
+
     resetFileInput() {
       this.$refs.fileInput.value = null;
     },
-    
+
     cancelDataUpload() {
       this.dataloadView = false;
       this.setLocalDataInstances([]);
     },
-    
+
     addNewPlotCard() {
       this.plots.push([new Histogram(), new BarPlot(), new BoxWhiskerPlot(), new ScatterPlot()]);
     },
-    
+
     removePlotCard(index) {
       this.plots.splice(index, 1);
     },
-    
+
     handleSubmitPlot(selectedValues) {
       console.log(selectedValues);
     },
@@ -270,13 +279,10 @@ export default {
 };
 </script>
 
-
 <style scoped>
 .main-layouttt {
   display: flex;
   justify-content: center;
-  
-
 }
 
 .main-content {
@@ -287,7 +293,6 @@ export default {
   border-radius: 30px;
   transition: all 0.3s ease;
   align-items: center;
-  /* To center horizontally as well */
 }
 
 #data-upload {
@@ -472,6 +477,4 @@ export default {
   background-color: #0056b3;
   transform: translateY(-3px);
 }
-
-
 </style>

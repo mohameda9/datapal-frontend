@@ -10,9 +10,10 @@ const routes = [
     component: HomePage
   },
   {
-    path: '/project',
+    path: '/project/:activePage?',
     name: 'ProjectPage',
-    component: ProjectPage
+    component: ProjectPage,
+    props: true
   }
 ];
 

@@ -34,6 +34,13 @@
               </template>
             </Dropdown>
           </div>
+          <div v-if="hasTestData" class="info-section">
+            <label class="slider-container">
+              <span>Run test on train data only</span>
+              <input type="checkbox" v-model="runOnTrainOnly" @change="toggleRunOn">
+            </label>
+          </div>
+
           <div v-if="selectedTest && selectedTest._properties && selectedTest._properties.length > 0" class="test-section">
             <div class="property-list column">
               <div v-for="(property, index) in selectedTest._properties" :key="index" class="property-item" v-show="showProperty(property.name)">
@@ -291,7 +298,11 @@ export default {
     data: {
       type: Array,
       required: true,
-    }
+    },
+    testData: {
+      type: Array,
+      default: () => [],
+    },
   },
   data() {
     return {
@@ -302,6 +313,8 @@ export default {
       isLeftPanelCollapsed: false,
       isLoading: false,
       resultData: null,
+      runOnTrainOnly: true, // Default value for the slider
+      runOn: "train",
       groupCollapsed: {},
       groupedTests: {
         'Parametric Tests': [],
@@ -311,6 +324,11 @@ export default {
       },
       groupedTestOptions: [],
     };
+  },
+  computed: {
+    hasTestData() {
+      return this.testData.length > 0;
+    },
   },
   created() {
     this.groupTests();
@@ -359,6 +377,10 @@ export default {
     selectTest() {
       this.selectedTest = this.selectedTestOption.test;
       console.log("Selected Test: ", this.selectedTest);
+    },
+    toggleRunOn() {
+      this.runOn = this.runOnTrainOnly ? 'train' : 'both';
+      console.log(this.runOn)
     },
     setProperty(index, value) {
       this.selectedTest.updateProperty(index, value);
@@ -463,9 +485,21 @@ export default {
         data: dataToSend,
         statConfig: {
           test: this.selectedTest._name,
-          values: selectedValues
+          values: selectedValues,
+          dataSetOption: this.runOn,
+
         }
       };
+
+      if (this.runOn === "both"){
+        console.log("runonBoth")
+
+        requestBody["testData"] = {
+        data: this.testData.map(row => ({ columns: row }))
+      };
+      }
+
+      console.log(requestBody)
 
       try {
         const response = await axios.post(this.selectedTest._name === 'KolmogorovSmirnovTest' ? '/goodFit' : '/stat', requestBody, {
@@ -833,4 +867,52 @@ export default {
   width: 100%;
   max-width: 300px;
 }
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  color: white;
+}
+
+.slider-container span {
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+input[type="checkbox"] {
+  appearance: none;
+  width: 40px;
+  height: 20px;
+  background-color: #ccc;
+  border-radius: 20px;
+  position: relative;
+  outline: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background-color: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+}
+
+input[type="checkbox"]:checked {
+  background-color: #007bff;
+}
+
+input[type="checkbox"]:checked::after {
+  transform: translateX(20px);
+}
+
+
 </style>
