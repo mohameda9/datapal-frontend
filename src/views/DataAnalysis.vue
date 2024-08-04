@@ -73,9 +73,8 @@ import UserDataset from '../components/UserDataset.vue';
 import { mapActions, mapGetters } from 'vuex';
 import statisticalAnalysis from '../components/statisticalAnalysis.vue';
 import dataVisuals from '../components/dataVisuals.vue';
-import { OneSampleTTest, KolmogorovSmirnovTest, IndependentTwoSampleTTest, PairedSampleTTest, KruskalWallisTest, MannWhitneyUTest, OneWayANOVA, Correlation } from '../classes/StatisticalModel';
-import { Histogram, BarPlot, BoxWhiskerPlot, ScatterPlot } from '../classes/Visualization';
-import axios from 'axios';
+import { OneSampleTTest, KolmogorovSmirnovTest, IndependentTwoSampleTTest, PairedSampleTTest, KruskalWallisTest, MannWhitneyUTest, OneWayANOVA, Correlation, TwoWayANOVA, FTest, ChiSquareTest } from '../classes/StatisticalModel';
+import { Histogram, BarPlot, BoxWhiskerPlot, ScatterPlot , PieChart} from '../classes/Visualization';
 import Dropdown from 'primevue/dropdown'; // Import PrimeVue Dropdown
 import Dialog from 'primevue/dialog'; // Import PrimeVue Dialog
 import { getColumnNamesByType } from '../utils/commonFunctions.js';
@@ -126,12 +125,12 @@ export default {
         
         if (this.isAddingStat) {
           this.statCards.push( {
-            tests: [new OneSampleTTest(), new IndependentTwoSampleTTest(), new PairedSampleTTest(), new OneWayANOVA(), new Correlation(), new KolmogorovSmirnovTest()],
+            tests: [new OneSampleTTest(), new IndependentTwoSampleTTest(), new PairedSampleTTest(), new OneWayANOVA(), new Correlation(), new KolmogorovSmirnovTest(), new KruskalWallisTest(), new MannWhitneyUTest(), new TwoWayANOVA(), new ChiSquareTest(), new FTest()],
             dataInstance: this.selectedDataInstance
           });
         } else if (this.isAddingPlot) {
           this.visualizationCards.push( {
-            plots: [new Histogram(), new BarPlot(), new BoxWhiskerPlot(), new ScatterPlot()],
+            plots: [new Histogram(), new BarPlot(), new BoxWhiskerPlot(), new ScatterPlot(), new PieChart()],
             dataInstance: this.selectedDataInstance
           })
         }

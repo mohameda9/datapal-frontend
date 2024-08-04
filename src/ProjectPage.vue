@@ -57,9 +57,17 @@
             <missingValueHandler
               v-if="showhandlingMissingValues"
               @close="showhandlingMissingValues = false"
-              :availableColumns="columnsWithMissingValues(instance)"
-              :columntypes="instance.dataTypes"
+              :availableColumns="columnsWithMissingValues(currentInstance)"
+              :columntypes="currentInstance.dataTypes"
+              :categoricalColumns="getColumnNamesByType(currentInstance, ['categorical', 'categorical binary'])"
+              :numericColumns="getColumnNamesByType(currentInstance, ['numeric', 'numeric binary'])"
+              @submit="(data) => handleMissingValuesSubmission(data, currentInstanceIndex)"
+              :metadata="metaDataForEditingModal"
             />
+
+
+
+
             <ScaleColumn
               v-if="shownormalizemodal"
               :visible="shownormalizemodal"
@@ -416,7 +424,9 @@ export default {
       } else if (workflow.title === 'Scale Column') {
         this.shownormalizemodal = true;
         console.log("sssss")
-      } else if (workflow.title === 'Create New Column') {
+      } else if (workflow.title === 'Handle Missing Values') {
+        this.showhandlingMissingValues = true;
+      }else if (workflow.title === 'Create New Column') {
         this.showColumnCreatorModal = true;
       } else if (workflow.title === 'Categorical Labeling') {
         this.showCategoricalLabelingModal = true;
@@ -524,6 +534,15 @@ export default {
         this.handleWorkflowSubmission(this.currentInstanceIndex, 'onehot-encoding', `One hot encode Column: ${columnName}`, { columnName });
       }
     },
+    handleMissingValuesSubmission(data, instanceIndex) {
+      
+    this.showhandlingMissingValues = false;
+    if (this.isEditingWorkflow) {
+      this.updateWorkflowItem('handle-missing', `Handle missing values for column: ${data.column}`, data);
+    } else {
+      this.handleWorkflowSubmission(instanceIndex, 'handle-missing', `Handle missing values for column: ${data.column}`, data);
+    }
+  },
     wf_scaleColumn(description, APIdata) {
       if (this.isEditingWorkflow) {
         this.updateWorkflowItem('scale-column', description, APIdata);
@@ -542,7 +561,9 @@ export default {
         'scale-column': 'Scale Column',
         'create-new-column': 'Create New Column',
         'categorical-labeling': 'Categorical Labeling',
-        'partition-data': 'Partition Data'
+        'partition-data': 'Partition Data',
+        'handle-missing': 'Handle Missing Values'
+
       };
       const newWorkflow = {
         title: actionDescriptions[action],
@@ -570,7 +591,9 @@ export default {
         'scale-column': 'Scale Column',
         'create-new-column': 'Create New Column',
         'categorical-labeling': 'Categorical Labeling',
-        'partition-data': 'Partition Data'
+        'partition-data': 'Partition Data',
+        'handle-missing': 'Handle Missing Values'
+
       };
       return actionDescriptions[action] || action;
     },

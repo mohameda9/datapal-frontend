@@ -11,7 +11,7 @@
       <div class="left-panel">
         <div class="left-panel-content">
           <div v-if="groupedTestOptions.length > 0" class="info-section">
-            <p class = "property-description">Start by selecting a test type:</p>
+            <p class="property-description">Start by selecting a test type:</p>
             <Dropdown 
               v-model="selectedTestOption" 
               :options="groupedTestOptions" 
@@ -132,19 +132,13 @@
                 <thead>
                   <tr>
                     <th>Group</th>
-                    <th>Count</th>
-                    <th>Sum</th>
-                    <th>Mean</th>
-                    <th>Variance</th>
+                    <th v-for="key in Object.keys(resultData.summary_statistics[Object.keys(resultData.summary_statistics)[0]])" :key="key">{{ key }}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(stats, group) in resultData.summary_statistics" :key="group">
                     <td>{{ group }}</td>
-                    <td>{{ stats.count }}</td>
-                    <td>{{ stats.sum }}</td>
-                    <td>{{ stats.mean }}</td>
-                    <td>{{ stats.variance }}</td>
+                    <td v-for="key in Object.keys(resultData.summary_statistics[group])" :key="key">{{ stats[key] }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -169,6 +163,33 @@
               </table>
             </div>
           </div>
+          <div v-if="resultData && resultData.anova_table" class="anova-table">
+            <h4 class="property-description">ANOVA Table</h4>
+            <div class="table-container">
+              <table class="result-table">
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>SS</th>
+                    <th>df</th>
+                    <th>MS</th>
+                    <th>F</th>
+                    <th>p</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, index) in resultData.anova_table" :key="index">
+                    <td>{{ row.source }}</td>
+                    <td>{{ row.SS }}</td>
+                    <td>{{ row.df }}</td>
+                    <td>{{ row.MS }}</td>
+                    <td>{{ row.F }}</td>
+                    <td>{{ row.p }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
           <div v-if="resultData && resultData.distribution_parameters" class="distribution-parameters">
             <h4 class="property-description">Distribution Parameters</h4>
             <div class="table-container">
@@ -181,7 +202,7 @@
                 </thead>
                 <tbody>
                   <tr v-for="(value, key) in resultData.distribution_parameters" :key="key">
-                    <td>{{ key}}</td>
+                    <td>{{ key }}</td>
                     <td>{{ value }}</td>
                   </tr>
                 </tbody>
@@ -227,7 +248,7 @@
             </div>
           </div>
           <div v-if="resultData && resultData.group_summary" class="group-summary">
-            <h4 class = "property-description">Group Summary</h4>
+            <h4 class="property-description">Group Summary</h4>
             <div class="table-container">
               <table class="result-table">
                 <thead>
@@ -245,32 +266,42 @@
               </table>
             </div>
           </div>
-          <div v-if="resultData && resultData.post_hoc && resultData.post_hoc.results.length" class="post-hoc-analysis">
-            <h4 class = "property-description">Post Hoc Analysis ({{ resultData.post_hoc.test }})</h4>
+          <div v-if="resultData && resultData.histogram_data && resultData.distribution_data" class="distribution-plot">
+            <h4>Distribution Plot</h4>
+            <line-chart :histogram-data="resultData.histogram_data" :distribution-data="resultData.distribution_data"></line-chart>
+          </div>
+          <div v-if="resultData && resultData.post_hoc && resultData.post_hoc.results" class="post-hoc-results">
+            <h4 class="property-description">Post Hoc Results (Tukey's HSD)</h4>
             <div class="table-container">
               <table class="result-table">
                 <thead>
                   <tr>
-                    <th v-for="(value, key) in resultData.post_hoc.results[0]" :key="key">{{ key }}</th>
+                    <th>Contrast</th>
+                    <th>Difference</th>
+                    <th>p-value</th>
+                    <th>Decision</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(result, index) in resultData.post_hoc.results" :key="index">
-                    <td v-for="(value, key) in result" :key="key">{{ value }}</td>
+                    <td>{{ result.contrast }}</td>
+                    <td>{{ result.difference.toFixed(3) }}</td>
+                    <td>{{ result.p_value.toFixed(3) }}</td>
+                    <td>{{ result.decision }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-          </div>
-          <div v-if="resultData && resultData.histogram_data && resultData.distribution_data" class="distribution-plot">
-            <h4>Distribution Plot</h4>
-            <line-chart :histogram-data="resultData.histogram_data" :distribution-data="resultData.distribution_data"></line-chart>
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
+
+
+
 
 <script>
 import { nextTick } from 'vue';
@@ -337,9 +368,9 @@ export default {
   methods: {
     groupTests() {
       this.tests.forEach(test => {
-        if (['OneSampleTTest', 'IndependentTwoSampleTTest', 'PairedSampleTTest', 'OneWayANOVA'].includes(test._name)) {
+        if (['OneSampleTTest', 'IndependentTwoSampleTTest', 'PairedSampleTTest', 'OneWayANOVA', 'TwoWayANOVA'].includes(test._name)) {
           this.groupedTests['Parametric Tests'].push(test);
-        } else if (['MannWhitneyUTest', 'KruskalWallisTest'].includes(test._name)) {
+        } else if (['MannWhitneyUTest', 'KruskalWallisTest', 'ChiSquareTest', 'FTest'].includes(test._name)) {
           this.groupedTests['Non-Parametric Tests'].push(test);
         } else if (['Correlation'].includes(test._name)) {
           this.groupedTests['Correlation Tests'].push(test);
@@ -422,7 +453,7 @@ export default {
         return propertyName === 'columns' || propertyName === 'correlation_type' || propertyName === 'nan_handling';
       }
 
-      if (this.selectedTest._name === 'IndependentTwoSampleTTest' || this.selectedTest._name === 'PairedSampleTTest' || this.selectedTest._name === 'MannWhitneyUTest') {
+      if (this.selectedTest._name === 'IndependentTwoSampleTTest' || this.selectedTest._name === 'PairedSampleTTest' || this.selectedTest._name === 'MannWhitneyUTest' || this.selectedTest._name === 'FTest') {
         const comparisonType = this.selectedTest._properties.find(prop => prop.name === 'comparison_type')?.value;
         if (propertyName === 'variable1' || propertyName === 'variable2') {
           return comparisonType === 'Compare two columns';
@@ -432,7 +463,7 @@ export default {
         }
       }
 
-      if (this.selectedTest._name === 'OneWayANOVA' || this.selectedTest._name === 'KruskalWallisTest') {
+      if (this.selectedTest._name === 'OneWayANOVA' || this.selectedTest._name === 'KruskalWallisTest' ) {
         const groupRepresentation = this.selectedTest._properties.find(prop => prop.name === 'group_representation')?.value;
         if (propertyName === 'numeric_variable' || propertyName === 'categorical_variable') {
           return groupRepresentation === 'Groups in one column';
@@ -441,6 +472,10 @@ export default {
           return groupRepresentation === 'Groups in separate columns';
         }
         return true;
+      }
+
+      if (this.selectedTest._name === 'TwoWayANOVA') {
+        return ['dependent_variable', 'factor1', 'factor2'].includes(propertyName);
       }
 
       return true;
@@ -487,19 +522,14 @@ export default {
           test: this.selectedTest._name,
           values: selectedValues,
           dataSetOption: this.runOn,
-
         }
       };
 
       if (this.runOn === "both"){
-        console.log("runonBoth")
-
         requestBody["testData"] = {
-        data: this.testData.map(row => ({ columns: row }))
-      };
+          data: this.testData.map(row => ({ columns: row }))
+        };
       }
-
-      console.log(requestBody)
 
       try {
         const response = await axios.post(this.selectedTest._name === 'KolmogorovSmirnovTest' ? '/goodFit' : '/stat', requestBody, {
@@ -549,6 +579,11 @@ export default {
   }
 };
 </script>
+
+
+
+
+
 
 <style scoped>
 .statistical-analysis-container {

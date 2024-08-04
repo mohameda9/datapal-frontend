@@ -35,8 +35,8 @@ export class Histogram extends Visualization {
         value: null,
         isArray: false,
         expects: "variables",
-        desc: "Select a numeric variable",
-        name: "x",
+        desc: "Show",
+        name: "y",
         isValid: false,
         isOptional: false,
       },
@@ -44,7 +44,7 @@ export class Histogram extends Visualization {
         value: null,
         isArray: false,
         expects: "variables",
-        desc: "Select a column for hue",
+        desc: "by",
         name: "hue",
         isValid: false,
         isOptional: true,
@@ -79,16 +79,7 @@ export class BarPlot extends Visualization {
         value: null,
         isArray: false,
         expects: "variables",
-        desc: "Select a categorical variable for x-axis",
-        name: "x",
-        isValid: false,
-        isOptional: false,
-      },
-      {
-        value: null,
-        isArray: false,
-        expects: "variables",
-        desc: "Select a numeric variable for y-axis",
+        desc: "Show",
         name: "y",
         isValid: false,
         isOptional: false,
@@ -97,7 +88,16 @@ export class BarPlot extends Visualization {
         value: null,
         isArray: false,
         expects: "variables",
-        desc: "Select a column for hue",
+        desc: "By",
+        name: "x",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variables",
+        desc: "and",
         name: "hue",
         isValid: false,
         isOptional: true,
@@ -119,10 +119,29 @@ export class BarPlot extends Visualization {
         name: "x_values",
         isValid: true,
         isOptional: true,
+      },
+      {
+        value: "vertical",
+        isArray: false,
+        expects: "orientation",
+        desc: "Orientation",
+        name: "orientation",
+        isValid: true,
+        isOptional: false,
+      },
+      {
+        value: "mean",
+        isArray: false,
+        expects: "aggregate",
+        desc: "Aggregate Function",
+        name: "aggregate",
+        isValid: true,
+        isOptional: false,
       }
     );
   }
 }
+
 
 export class BoxWhiskerPlot extends Visualization {
   constructor() {
@@ -132,7 +151,7 @@ export class BoxWhiskerPlot extends Visualization {
         value: null,
         isArray: false,
         expects: "variables",
-        desc: "Select a numeric variable for y-axis",
+        desc: "Show",
         name: "y",
         isValid: false,
         isOptional: false,
@@ -141,7 +160,7 @@ export class BoxWhiskerPlot extends Visualization {
         value: null,
         isArray: false,
         expects: "variables",
-        desc: "Select a categorical variable for x-axis",
+        desc: "by",
         name: "x",
         isValid: false,
         isOptional: true,
@@ -150,7 +169,7 @@ export class BoxWhiskerPlot extends Visualization {
         value: null,
         isArray: false,
         expects: "variables",
-        desc: "Select a column for hue",
+        desc: "and",
         name: "hue",
         isValid: false,
         isOptional: true,
@@ -176,7 +195,7 @@ export class ScatterPlot extends Visualization {
         value: null,
         isArray: false,
         expects: "variables",
-        desc: "Select a variable for x-axis",
+        desc: "By",
         name: "x",
         isValid: false,
         isOptional: false,
@@ -185,7 +204,7 @@ export class ScatterPlot extends Visualization {
         value: null,
         isArray: false,
         expects: "variables",
-        desc: "Select a variable for y-axis",
+        desc: "Show",
         name: "y",
         isValid: false,
         isOptional: false,
@@ -194,3 +213,30 @@ export class ScatterPlot extends Visualization {
   }
 }
 
+
+
+export class PieChart extends Visualization {
+  constructor() {
+    super("PieChart");
+    this._properties.push(
+      {
+        value: null,
+        isArray: false,
+        expects: "variables",
+        desc: "Show",
+        name: "y",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variables",
+        desc: "By",
+        name: "hue",
+        isValid: false,
+        isOptional: false,
+      }
+    );
+  }
+}

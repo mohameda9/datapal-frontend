@@ -2,7 +2,7 @@
   <div class="dataVisual-container" role="dialog">
     <div class="dataVisual">
       <div class="header" @click="toggleCollapse">
-        <h2> </h2>
+        <h2>{{ selectedPlot?._name }}</h2>
         <span :class="{ 'arrow-down': isCollapsed, 'arrow-up': !isCollapsed }"></span>
         <button @click.stop="deleteComponent" class="delete-button">
           <span class="pi pi-minus"></span>
@@ -65,8 +65,39 @@
                   <div v-if="property.expects === 'number'" class="property-options">
                     <input type="number" v-model.number="property.value" @input="setProperty(index, property.value)" placeholder="Enter number of bins" />
                   </div>
+                  <div v-if="property.expects === 'orientation'" class="property-options">
+                    <Dropdown
+                      v-model="property.value"
+                      :options="['vertical', 'horizontal']"
+                      placeholder="Select orientation"
+                      class="scrollable-dropdown"
+                      @change="setProperty(index, property.value)"
+                    />
+                  </div>
+                  <div v-if="property.expects === 'aggregate'" class="property-options">
+                    <Dropdown
+                      v-model="property.value"
+                      :options="['count', 'sum', 'mean', 'min', 'max']"
+                      placeholder="Select aggregate function"
+                      class="scrollable-dropdown"
+                      @change="setProperty(index, property.value)"
+                    />
+                  </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div class="dataVisual-section">
+            <p>Select color theme:</p>
+            <div class="property-options">
+              <Dropdown
+                v-model="selectedColorTheme"
+                :options="colorThemes"
+                optionLabel="name"
+                placeholder="Select a color theme"
+                class="scrollable-dropdown"
+              />
             </div>
           </div>
 
@@ -92,7 +123,6 @@
     </div>
   </div>
 </template>
-
 
 <script>
 import { nextTick } from 'vue';
@@ -139,6 +169,7 @@ export default {
   data() {
     return {
       selectedPlot: null,
+      selectedColorTheme: { name: 'Default', colors: ['#FF6384', '#36A2EB', '#FFCE56'] },
       isCollapsed: false,
       isLeftPanelCollapsed: false,
       chartData: null,
@@ -146,6 +177,12 @@ export default {
       chartType: 'bar',
       chart: null,
       isLoading: false,
+      colorThemes: [
+        { name: 'Default', colors: ['#FF6384', '#36A2EB', '#FFCE56'] },
+        { name: 'Cool', colors: ['#4BC0C0', '#36A2EB', '#9966FF'] },
+        { name: 'Warm', colors: ['#FF6384', '#FF9F40', '#FFCD56'] },
+        { name: 'Monochrome', colors: ['#AAAAAA', '#BBBBBB', '#CCCCCC'] }
+      ]
     };
   },
   computed: {
@@ -181,7 +218,6 @@ export default {
       this.isLeftPanelCollapsed = !this.isLeftPanelCollapsed;
     },
     selectPlot(plot) {
-      console.log(this.selectPlot)
       this.selectedPlot = plot;
       this.plotUpdated();
     },
@@ -236,10 +272,10 @@ export default {
     },
     getColumnOptions(property) {
       if (property.expects === 'variables') {
-        if (this.selectedPlot._name === 'BarPlot' || this.selectedPlot._name === 'BoxWhiskerPlot') {
-          if (property.name === 'x' || property.name === 'hue') {
+        if (this.selectedPlot._name === 'BarPlot' || this.selectedPlot._name === 'BoxWhiskerPlot' || this.selectedPlot._name === 'PieChart') {
+          if (property.name === 'x' || property.name === 'hue' || property.name === 'by') {
             return this.categoricalColumns;
-          } else if (property.name === 'y') {
+          } else if (property.name === 'y' || property.name === 'show') {
             return this.numericalColumns;
           }
         } else if (this.selectedPlot._name === 'Histogram' || this.selectedPlot._name === 'ScatterPlot') {
@@ -251,6 +287,26 @@ export default {
         }
       }
       return [];
+    },
+    generatePlotTitle(selectedValues) {
+      let title = '';
+      console.log(selectedValues)
+      
+      if (selectedValues.y) {
+        title += `${selectedValues.y}`;
+      }
+      
+      if (selectedValues.x) {
+        title += ` by ${selectedValues.x}`;
+      } else if (selectedValues.hue) {
+        title += ` by ${selectedValues.hue}`;
+      }
+
+      if (selectedValues.hue && selectedValues.x) {
+        title += ` and ${selectedValues.hue}`;
+      }
+
+      return title;
     },
     generateChartData(selectedValues) {
       const plotType = this.selectedPlot._name.toLowerCase();
@@ -276,9 +332,66 @@ export default {
           this.chartData = this.getScatterPlotData(selectedValues);
           this.chartOptions = this.getScatterPlotOptions(selectedValues);
           break;
+        case 'piechart':
+          this.chartType = 'pie';
+          this.chartData = this.getPieChartData(selectedValues);
+          this.chartOptions = this.getPieChartOptions(selectedValues);
+          break;
         default:
           console.error('Unsupported plot type:', plotType);
       }
+    },
+    getPieChartData(selectedValues) {
+      const showVariable = selectedValues.y;
+      const byVariable = selectedValues.hue;
+
+      const showIndex = this.variables.indexOf(showVariable);
+      const byIndex = this.variables.indexOf(byVariable);
+
+      const groupedData = this.data.slice(1).reduce((acc, row) => {
+        const byValue = row[byIndex];
+        const showValue = Number(row[showIndex]);
+
+        if (!acc[byValue]) {
+          acc[byValue] = 0;
+        }
+
+        acc[byValue] += showValue;
+        return acc;
+      }, {});
+
+      const labels = Object.keys(groupedData);
+      const data = labels.map(label => groupedData[label]);
+
+      // Use selected color theme for the background color
+      const backgroundColor = labels.map((_, index) => {
+        return this.selectedColorTheme.colors[index % this.selectedColorTheme.colors.length];
+      });
+
+      return {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: backgroundColor,
+          borderColor: '#000000',
+          borderWidth: 1,
+        }],
+      };
+    },
+    getPieChartOptions(selectedValues) {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: this.generatePlotTitle(selectedValues)
+          },
+          legend: {
+            display: true,
+          },
+        },
+      };
     },
     getBoxWhiskerPlotData(selectedValues) {
       const xVariable = selectedValues.x;
@@ -326,7 +439,7 @@ export default {
             boxpoints: false,
             jitter: 0.5,
             pointpos: 0,
-            marker: { color: this.getRandomColor() }
+            marker: { color: this.getColorForHue(hueValue) }
           };
           labels.forEach(label => {
             const hueData = groupedData[label][hueValue];
@@ -348,7 +461,7 @@ export default {
           boxpoints: false,
           jitter: 0.5,
           pointpos: 0,
-          marker: { color: this.getRandomColor() }
+          marker: { color: this.getColorForHue(yVariable) }
         };
         labels.forEach(label => {
           const totalData = groupedData[label].total;
@@ -366,7 +479,10 @@ export default {
     },
     getBoxWhiskerPlotOptions(selectedValues) {
       return {
-        title: `Box and Whisker Plot of ${selectedValues.y} by ${selectedValues.x}`,
+        title: {
+          display: true,
+          text: this.generatePlotTitle(selectedValues),
+        },
         xaxis: {
           title: selectedValues.x,
         },
@@ -378,15 +494,15 @@ export default {
       };
     },
     getHistogramData(selectedValues) {
-      const xVariable = selectedValues.x;
+      const yVariable = selectedValues.y;
       const numBins = selectedValues.num_bins || this.getDefaultNumBins(selectedValues.x);
       const hueVariable = selectedValues.hue || null;
       const hueValues = Array.isArray(selectedValues.hue_values) ? selectedValues.hue_values : Array.from(selectedValues.hue_values || []);
 
-      const xIndex = this.variables.indexOf(xVariable);
+      const yIndex = this.variables.indexOf(yVariable);
       const hueIndex = hueVariable ? this.variables.indexOf(hueVariable) : -1;
 
-      const allValues = this.data.slice(1).map(row => Number(row[xIndex]));
+      const allValues = this.data.slice(1).map(row => Number(row[yIndex]));
 
       const minValue = Math.min(...allValues);
       const maxValue = Math.max(...allValues);
@@ -402,7 +518,7 @@ export default {
       }));
 
       this.data.slice(1).forEach(row => {
-        const value = Number(row[xIndex]);
+        const value = Number(row[yIndex]);
         const binIndex = Math.min(Math.floor((value - minValue) / binSize), numBins - 1);
         bins[binIndex].count += 1;
         if (hueVariable) {
@@ -419,16 +535,16 @@ export default {
           return {
             label: hueValue,
             data: bins.map(bin => bin.hueCounts[hueValue]),
-            backgroundColor: this.getRandomColor(),
+            backgroundColor: this.getColorForHue(hueValue),
             borderColor: '#000000',
             borderWidth: 1,
           };
         });
       } else {
         datasets = [{
-          label: xVariable,
+          label: yVariable,
           data: bins.map(bin => bin.count),
-          backgroundColor: this.getRandomColor(),
+          backgroundColor: this.getColorForHue(yVariable),
           borderColor: '#000000',
           borderWidth: 1,
         }];
@@ -439,12 +555,46 @@ export default {
         datasets: datasets,
       };
     },
+    getHistogramOptions(selectedValues) {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: selectedValues.y,
+            },
+            stacked: true,
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Frequency',
+            },
+            stacked: true,
+          },
+        },
+        plugins: {
+          title: {
+            display: true,
+            text: this.generatePlotTitle(selectedValues),
+          },
+          legend: {
+            display: selectedValues.hue ? true : false,
+          },
+        },
+        barPercentage: 1.0,
+        categoryPercentage: 1.0,
+      };
+    },
     getBarPlotData(selectedValues) {
       const xVariable = selectedValues.x;
       const yVariable = selectedValues.y;
       const hueVariable = selectedValues.hue || null;
       const hueValues = Array.isArray(selectedValues.hue_values) ? selectedValues.hue_values : Array.from(selectedValues.hue_values || []);
       const xValuesFilter = Array.isArray(selectedValues.x_values) ? selectedValues.x_values : Array.from(selectedValues.x_values || []);
+      const aggregateFunction = selectedValues.aggregate;
 
       const xIndex = this.variables.indexOf(xVariable);
       const yIndex = this.variables.indexOf(yVariable);
@@ -461,16 +611,14 @@ export default {
 
         if (hueVariable) {
           if (!acc[xValue][hueValue]) {
-            acc[xValue][hueValue] = { sum: 0, count: 0 };
+            acc[xValue][hueValue] = [];
           }
-          acc[xValue][hueValue].sum += yValue;
-          acc[xValue][hueValue].count += 1;
+          acc[xValue][hueValue].push(yValue);
         } else {
           if (!acc[xValue].total) {
-            acc[xValue].total = { sum: 0, count: 0 };
+            acc[xValue].total = [];
           }
-          acc[xValue].total.sum += yValue;
-          acc[xValue].total.count += 1;
+          acc[xValue].total.push(yValue);
         }
 
         return acc;
@@ -484,9 +632,17 @@ export default {
             label: `${hueVariable}: ${hueValue}`,
             data: labels.map(label => {
               const hueData = groupedData[label][hueValue];
-              return hueData ? hueData.sum / hueData.count : 0;
+              if (!hueData) return 0;
+              switch (aggregateFunction) {
+                case 'count': return hueData.length;
+                case 'sum': return hueData.reduce((a, b) => a + b, 0);
+                case 'mean': return hueData.reduce((a, b) => a + b, 0) / hueData.length;
+                case 'min': return Math.min(...hueData);
+                case 'max': return Math.max(...hueData);
+                default: return hueData.reduce((a, b) => a + b, 0) / hueData.length;
+              }
             }),
-            backgroundColor: this.getRandomColor(),
+            backgroundColor: this.getColorForHue(hueValue),
             borderColor: '#000000',
             borderWidth: 1,
           };
@@ -496,9 +652,17 @@ export default {
           label: yVariable,
           data: labels.map(label => {
             const totalData = groupedData[label].total;
-            return totalData ? totalData.sum / totalData.count : 0;
+            if (!totalData) return 0;
+            switch (aggregateFunction) {
+              case 'count': return totalData.length;
+              case 'sum': return totalData.reduce((a, b) => a + b, 0);
+              case 'mean': return totalData.reduce((a, b) => a + b, 0) / totalData.length;
+              case 'min': return Math.min(...totalData);
+              case 'max': return Math.max(...totalData);
+              default: return totalData.reduce((a, b) => a + b, 0) / totalData.length;
+            }
           }),
-          backgroundColor: this.getRandomColor(),
+          backgroundColor: this.getColorForHue(yVariable),
           borderColor: '#000000',
           borderWidth: 1,
         }];
@@ -513,23 +677,28 @@ export default {
       return {
         responsive: true,
         maintainAspectRatio: false,
+        indexAxis: selectedValues.orientation === 'horizontal' ? 'y' : 'x',
         scales: {
           x: {
             title: {
               display: true,
-              text: selectedValues.x,
+              text: selectedValues.orientation === 'horizontal' ? selectedValues.y : selectedValues.x,
             },
             stacked: false,
           },
           y: {
             title: {
               display: true,
-              text: `Mean of ${selectedValues.y}`,
+              text: selectedValues.orientation === 'horizontal' ? selectedValues.x : `${selectedValues.aggregate} of ${selectedValues.y}`,
             },
             stacked: false,
           },
         },
         plugins: {
+          title: {
+            display: true,
+            text: this.generatePlotTitle(selectedValues),
+          },
           legend: {
             display: selectedValues.hue ? true : false,
             labels: {
@@ -562,35 +731,6 @@ export default {
         },
       };
     },
-    getHistogramOptions(selectedValues) {
-      return {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            title: {
-              display: true,
-              text: selectedValues.x,
-            },
-            stacked: true,
-          },
-          y: {
-            title: {
-              display: true,
-              text: 'Frequency',
-            },
-            stacked: true,
-          },
-        },
-        plugins: {
-          legend: {
-            display: selectedValues.hue ? true : false,
-          },
-        },
-        barPercentage: 1.0,
-        categoryPercentage: 1.0,
-      };
-    },
     getScatterPlotData(selectedValues) {
       const xVariable = selectedValues.x;
       const yVariable = selectedValues.y;
@@ -606,7 +746,7 @@ export default {
         datasets: [{
           label: `${yVariable} vs ${xVariable}`,
           data: xValues.map((x, i) => ({ x, y: yValues[i] })),
-          backgroundColor: this.getRandomColor(),
+          backgroundColor: this.getColorForHue(xVariable),
           borderColor: '#000000',
           borderWidth: 1,
           pointRadius: 5,
@@ -632,6 +772,10 @@ export default {
           },
         },
         plugins: {
+          title: {
+            display: true,
+            text: this.generatePlotTitle(selectedValues),
+          },
           legend: {
             display: true,
           },
@@ -642,13 +786,17 @@ export default {
       const dataLength = this.data.length - 1;
       return Math.ceil(Math.sqrt(dataLength));
     },
-    getRandomColor() {
-      const letters = '0123456789ABCDEF';
-      let color = '#';
-      for (let i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * 16)];
+    getColorForHue(hue) {
+      if (this.selectedColorTheme) {
+        const themeColors = this.selectedColorTheme.colors;
+        const hueIndex = this.hueValues.indexOf(hue);
+        if (hueIndex !== -1) {
+          return themeColors[hueIndex % themeColors.length];
+        } else {
+          return themeColors[0];
+        }
       }
-      return color;
+      return '#000000'; // Default to black if no theme is selected
     },
     renderChart() {
       if (this.chart) {
@@ -668,6 +816,7 @@ export default {
   }
 };
 </script>
+
 
 <style>
 .dataVisual-container {

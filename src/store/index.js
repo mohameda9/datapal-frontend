@@ -120,6 +120,7 @@ const store = createStore({
       try {
         const response = await axios.get(`/loadProject/${state.user.email}/${state.activeProject.name}`);
         commit('setLocalDataInstances', response.data);
+        console.log(response)
       } catch (error) {
         commit('setLocalDataInstances', []);
       }
@@ -161,7 +162,7 @@ const store = createStore({
 
   },
   plugins: [createPersistedState({
-    paths: ['user', 'isAuthenticated', 'activeProject', 'localDataInstances', 'projects'] // Specify the state you want to persist
+    paths: ['user', 'isAuthenticated', 'activeProject', 'projects'] // Specify the state you want to persist
   })]
 });
 

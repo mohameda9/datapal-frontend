@@ -200,12 +200,14 @@ export default {
       });
       return dataTypes;
     },
-
     determineDataTypeForColumn(data, columnIndex) {
       let numeric = true;
       const uniqueValues = new Set();
       data.forEach(row => {
         const value = row[columnIndex];
+        if (value === null || value === '' || value.trim() === '') {
+          return; // Skip missing values
+        }
         if (typeof value === 'string' && isNaN(value.trim())) {
           numeric = false;
         }
@@ -217,12 +219,13 @@ export default {
       return numeric ? 'numeric' : 'categorical';
     },
 
+
     convertNumericColumns(data, dataTypes) {
       for (let i = 0; i < data.length; i++) {
         for (let j = 0; j < data[i].length; j++) {
           const header = Object.keys(dataTypes)[j];
           if (dataTypes[header].includes('numeric')) {
-            if (data[i][j] === '' || isNaN(data[i][j])) {
+            if (data[i][j] === null || data[i][j] === '' || data[i][j].trim() === '') {
               data[i][j] = null; // or NaN, depending on your preference
             } else {
               data[i][j] = Number(data[i][j]);
@@ -231,6 +234,7 @@ export default {
         }
       }
     },
+
 
     async submitDataUpload() {
       this.submitting = true;

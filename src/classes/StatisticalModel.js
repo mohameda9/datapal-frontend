@@ -428,65 +428,6 @@ export class KruskalWallisTest extends StatisticalModel {
 
 
 
-export class OneWayANOVA extends StatisticalModel {
-  constructor() {
-    super("OneWayANOVA");
-    this._properties.push(
-      {
-        value: null,
-        isArray: false,
-        expects: "select",
-        desc: "How are groups represented?",
-        name: "group_representation",
-        options: ["Groups in one column", "Groups in separate columns"],
-        isValid: false,
-        isOptional: false,
-      },
-      {
-        value: null,
-        isArray: false,
-        expects: "variable",
-        desc: "Select a numeric variable",
-        name: "numeric_variable",
-        isValid: false,
-        isOptional: false,
-      },
-      {
-        value: null,
-        isArray: false,
-        expects: "variable",
-        desc: "Select a categorical variable",
-        name: "categorical_variable",
-        isValid: false,
-        isOptional: false,
-      },
-      {
-        value: new Set(),
-        isArray: true,
-        expects: "variables",
-        desc: "Select group columns",
-        name: "group_columns",
-        isValid: false,
-        isOptional: false,
-      }
-    );
-  }
-
-  isValid() {
-    const groupRepresentation = this._properties.find(prop => prop.name === 'group_representation')?.value;
-    if (groupRepresentation === 'Groups in one column') {
-      const numericVariable = this._properties.find(prop => prop.name === 'numeric_variable');
-      const categoricalVariable = this._properties.find(prop => prop.name === 'categorical_variable');
-      return numericVariable.isValid && categoricalVariable.isValid;
-    } else if (groupRepresentation === 'Groups in separate columns') {
-      const groupColumns = this._properties.find(prop => prop.name === 'group_columns');
-      return groupColumns.isValid;
-    }
-    return false;
-  }
-}
-
-
 export class Correlation extends StatisticalModel {
   constructor() {
     super("Correlation");
@@ -545,6 +486,253 @@ export class KolmogorovSmirnovTest extends StatisticalModel {
         desc: "Select a distribution",
         name: "distribution",
         options: ["normal", "pareto", "gamma", "uniform", "exponential"],
+        isValid: false,
+        isOptional: false,
+      }
+    );
+  }
+}
+
+
+export class OneWayANOVA extends StatisticalModel {
+  constructor() {
+    super("OneWayANOVA");
+    this._properties.push(
+      {
+        value: null,
+        isArray: false,
+        expects: "select",
+        desc: "How are groups represented?",
+        name: "group_representation",
+        options: ["Groups in one column", "Groups in separate columns"],
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select a numeric variable",
+        name: "numeric_variable",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select a categorical variable",
+        name: "categorical_variable",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: new Set(),
+        isArray: true,
+        expects: "variables",
+        desc: "Select group columns",
+        name: "group_columns",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: "2",
+        isArray: false,
+        expects: "select",
+        desc: "Select ANOVA Type",
+        name: "anova_type",
+        options: ["1", "2", "3"],
+        isValid: true,
+        isOptional: false,
+      }
+    );
+  }
+
+  isValid() {
+    const groupRepresentation = this._properties.find(prop => prop.name === 'group_representation')?.value;
+    if (groupRepresentation === 'Groups in one column') {
+      const numericVariable = this._properties.find(prop => prop.name === 'numeric_variable');
+      const categoricalVariable = this._properties.find(prop => prop.name === 'categorical_variable');
+      return numericVariable.isValid && categoricalVariable.isValid;
+    } else if (groupRepresentation === 'Groups in separate columns') {
+      const groupColumns = this._properties.find(prop => prop.name === 'group_columns');
+      return groupColumns.isValid;
+    }
+    return false;
+  }
+}
+
+export class TwoWayANOVA extends StatisticalModel {
+  constructor() {
+    super("TwoWayANOVA");
+    this._properties.push(
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select a numeric dependent variable",
+        name: "dependent_variable",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select the first factor",
+        name: "factor1",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select the second factor",
+        name: "factor2",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: "2",
+        isArray: false,
+        expects: "select",
+        desc: "Select ANOVA Type",
+        name: "anova_type",
+        options: ["1", "2", "3"],
+        isValid: true,
+        isOptional: false,
+      }
+    );
+  }
+
+  isValid() {
+    const dependentVariable = this._properties.find(prop => prop.name === 'dependent_variable');
+    const factor1 = this._properties.find(prop => prop.name === 'factor1');
+    const factor2 = this._properties.find(prop => prop.name === 'factor2');
+    return dependentVariable.isValid && factor1.isValid && factor2.isValid;
+  }
+}
+
+
+
+
+
+
+
+
+
+export class FTest extends StatisticalModel {
+  constructor() {
+    super("FTest");
+    this._properties.push(
+      {
+        value: null,
+        isArray: false,
+        expects: "select",
+        desc: "Select comparison type",
+        name: "comparison_type",
+        options: ["Compare two columns", "Compare one column by category"],
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select a numeric variable for sample 1",
+        name: "variable1",
+        isValid: false,
+        isOptional: true,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select a numeric variable for sample 2",
+        name: "variable2",
+        isValid: false,
+        isOptional: true,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select a numeric variable",
+        name: "numeric_variable",
+        isValid: false,
+        isOptional: true,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select a categorical variable",
+        name: "categorical_variable",
+        isValid: false,
+        isOptional: true,
+      },
+      {
+        value: new Set(),
+        isArray: true,
+        expects: "categories",
+        desc: "Select two categories to compare",
+        name: "categories",
+        isValid: false,
+        isOptional: true,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "comparison",
+        desc: "Select comparison type",
+        name: "comparison",
+        isValid: false,
+        isOptional: false,
+      }
+    );
+  }
+
+  isValid() {
+    const comparisonType = this._properties.find(prop => prop.name === 'comparison_type')?.value;
+    if (comparisonType === 'Compare two columns') {
+      return this._properties.every(property => {
+        if (property.name === 'variable1' || property.name === 'variable2' || property.name === 'comparison') {
+          return property.isValid;
+        }
+        return true;
+      });
+    } else if (comparisonType === 'Compare one column by category') {
+      return this._properties.every(property => {
+        if (property.name === 'numeric_variable' || property.name === 'categorical_variable' || property.name === 'categories' || property.name === 'comparison') {
+          return property.isValid;
+        }
+        return true;
+      });
+    }
+    return false;
+  }
+}
+
+export class ChiSquareTest extends StatisticalModel {
+  constructor() {
+    super("ChiSquareTest");
+    this._properties.push(
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select the first categorical variable",
+        name: "categorical_variable1",
+        isValid: false,
+        isOptional: false,
+      },
+      {
+        value: null,
+        isArray: false,
+        expects: "variable",
+        desc: "Select the second categorical variable",
+        name: "categorical_variable2",
         isValid: false,
         isOptional: false,
       }
