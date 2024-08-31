@@ -1,6 +1,21 @@
 <template>
   <div class="dataVisual-container" role="dialog">
     <div class="dataVisual">
+      <!-- Square Tabs at the top -->
+      <div class="dataVisual-tabs">
+        <ul>
+          <li
+            v-for="(plot, index) in plots"
+            :key="index"
+            :class="{ active: selectedPlot === plot }"
+            @click="selectPlot(plot)"
+          >
+            <i :class="getIconForPlot(plot._name)" class="tab-icon"></i>
+            <span>{{ plot._name }}</span>
+          </li>
+        </ul>
+      </div>
+
       <div class="header" @click="toggleCollapse">
         <h2>{{ selectedPlot?._name }}</h2>
         <span :class="{ 'arrow-down': isCollapsed, 'arrow-up': !isCollapsed }"></span>
@@ -11,101 +26,105 @@
 
       <div v-show="!isCollapsed" class="content">
         <div :class="{ 'left-panel': true, 'hidden': isLeftPanelCollapsed }">
-          <div v-if="plots.length > 0">
-            <div class="info-section">
-              <p>Start by selecting a plot type.</p>
-              <div class="dataVisual-list">
-                <Dropdown
-                  v-model="selectedPlot"
-                  :options="plots"
-                  optionLabel="_name"
-                  placeholder="Select a plot type"
-                  @change="selectPlot(selectedPlot)"
-                />
+          <div v-if="selectedPlot && selectedPlot._properties.length > 0">
+            <div class="dataVisual-section">
+              <p>Select properties:</p>
+              <div class="property-list">
+                <div v-for="(property, index) in selectedPlot?._properties" :key="index" class="property-item">
+                  <div v-if="index === 0 || (index > 0 && (selectedPlot?._properties[index-1]?.isValid || selectedPlot?._properties[index-1]?.isOptional))">
+                    <div class="property-description">{{ property.desc }}</div>
+                    <div v-if="property.expects === 'variables'" class="property-options">
+                      <Dropdown
+                        v-model="property.value"
+                        :options="getColumnOptions(property)"
+                        placeholder="Select a variable"
+                        class="scrollable-dropdown"
+                        @change="setProperty(index, property.value)"
+                        :show-clear="true"
+                      />
+                    </div>
+                    <div v-if="property.expects === 'values'" class="property-options">
+                      <MultiSelect
+                        v-if="property.name === 'x_values' ? xValues.length > 0 : hueValues.length > 0"
+                        :options="property.name === 'x_values' ? xValues : hueValues"
+                        :model-value="Array.from(property.value)"
+                        @update:model-value="value => setProperty(index, value)"
+                        placeholder="Select values"
+                        class="scrollable-dropdown"
+                        :show-clear="true"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="dataVisual-section">
-            <p>Select properties:</p>
-            <div class="property-list">
-              <div v-for="(property, index) in selectedPlot?._properties" :key="index" class="property-item">
-                <div v-if="index === 0 || (index > 0 && (selectedPlot?._properties[index-1]?.isValid || selectedPlot?._properties[index-1]?.isOptional))">
-                  <div class="property-description">{{ property.desc }}</div>
-                  <div v-if="property.expects === 'variables'" class="property-options">
-                    <Dropdown
-                      v-model="property.value"
-                      :options="getColumnOptions(property)"
-                      placeholder="Select a variable"
-                      class="scrollable-dropdown"
-                      @change="setProperty(index, property.value)"
-                    />
-                  </div>
-                  <div v-if="property.expects === 'values'" class="property-options">
-                    <MultiSelect
-                      v-if="property.name === 'x_values' ? xValues.length > 0 : hueValues.length > 0"
-                      :options="property.name === 'x_values' ? xValues : hueValues"
-                      :model-value="Array.from(property.value)"
-                      @update:model-value="value => setProperty(index, value)"
-                      placeholder="Select values"
-                      class="scrollable-dropdown"
-                    />
-                  </div>
-                  <div v-if="property.expects === 'boolean'" class="property-options boolean-property">
-                    <span>{{ property.name }}</span>
-                    <label class="switch">
-                      <input
-                        type="checkbox"
-                        :checked="property.value"
-                        @change="toggleBooleanProperty(index)"
+            <!-- Advanced Settings Section -->
+            <div class="dataVisual-section advanced-settings">
+              <div class="advanced-settings-header" @click="toggleAdvancedSettings">
+                <span>Advanced Settings</span>
+                <i :class="advancedSettingsExpanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"></i>
+              </div>
+              <div v-show="advancedSettingsExpanded" class="advanced-settings-content">
+                <div class="property-list">
+                  <div v-for="(property, index) in selectedPlot?._properties" :key="index" class="property-item">
+                    <div v-if="property.expects === 'boolean'" class="property-options boolean-property">
+                      <span>{{ property.name }}</span>
+                      <label class="switch">
+                        <input
+                          type="checkbox"
+                          :checked="property.value"
+                          @change="toggleBooleanProperty(index)"
+                        />
+                        <span class="slider round"></span>
+                      </label>
+                    </div>
+                    <div v-if="property.expects === 'number'" class="property-options">
+                      <input type="number" v-model.number="property.value" @input="setProperty(index, property.value)" placeholder="Enter number of bins" />
+                    </div>
+                    <div v-if="property.expects === 'orientation'" class="property-options">
+                      <Dropdown
+                        v-model="property.value"
+                        :options="['vertical', 'horizontal']"
+                        placeholder="Select orientation"
+                        class="scrollable-dropdown"
+                        :show-clear="true"
                       />
-                      <span class="slider round"></span>
-                    </label>
+                    </div>
+                    <div v-if="property.expects === 'aggregate'" class="property-options">
+                      <Dropdown
+                        v-model="property.value"
+                        :options="['count', 'sum', 'mean', 'min', 'max']"
+                        placeholder="Select aggregate function"
+                        class="scrollable-dropdown"
+                        :show-clear="true"
+                      />
+                    </div>
                   </div>
-                  <div v-if="property.expects === 'number'" class="property-options">
-                    <input type="number" v-model.number="property.value" @input="setProperty(index, property.value)" placeholder="Enter number of bins" />
-                  </div>
-                  <div v-if="property.expects === 'orientation'" class="property-options">
+                </div>
+
+                <div class="dataVisual-section">
+                  <p>Select color theme:</p>
+                  <div class="property-options">
                     <Dropdown
-                      v-model="property.value"
-                      :options="['vertical', 'horizontal']"
-                      placeholder="Select orientation"
+                      v-model="selectedColorTheme"
+                      :options="colorThemes"
+                      optionLabel="name"
+                      placeholder="Select a color theme"
                       class="scrollable-dropdown"
-                      @change="setProperty(index, property.value)"
-                    />
-                  </div>
-                  <div v-if="property.expects === 'aggregate'" class="property-options">
-                    <Dropdown
-                      v-model="property.value"
-                      :options="['count', 'sum', 'mean', 'min', 'max']"
-                      placeholder="Select aggregate function"
-                      class="scrollable-dropdown"
-                      @change="setProperty(index, property.value)"
+                      :show-clear="true"
                     />
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="dataVisual-section">
-            <p>Select color theme:</p>
-            <div class="property-options">
-              <Dropdown
-                v-model="selectedColorTheme"
-                :options="colorThemes"
-                optionLabel="name"
-                placeholder="Select a color theme"
-                class="scrollable-dropdown"
-              />
+            <div v-if="canSubmitPlot" class="centered-section">
+              <button @click="submitPlot" class="p-button p-component submit-button" :disabled="isLoading">
+                Submit Plot
+                <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              </button>
             </div>
-          </div>
-
-          <div v-if="canSubmitPlot" class="centered-section">
-            <button @click="submitPlot" class="p-button p-component submit-button" :disabled="isLoading">
-              Submit Plot
-              <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            </button>
           </div>
         </div>
 
@@ -123,6 +142,8 @@
     </div>
   </div>
 </template>
+
+
 
 <script>
 import { nextTick } from 'vue';
@@ -175,6 +196,7 @@ export default {
       chartData: null,
       chartOptions: {},
       chartType: 'bar',
+      advancedSettingsExpanded: false,
       chart: null,
       isLoading: false,
       colorThemes: [
@@ -213,6 +235,9 @@ export default {
   methods: {
     toggleCollapse() {
       this.isCollapsed = !this.isCollapsed;
+    },
+    toggleAdvancedSettings() {
+      this.advancedSettingsExpanded = !this.advancedSettingsExpanded;
     },
     toggleLeftPanel() {
       this.isLeftPanelCollapsed = !this.isLeftPanelCollapsed;
@@ -288,6 +313,20 @@ export default {
       }
       return [];
     },
+    getIconForPlot(plotName) {
+      switch (plotName.toLowerCase()) {
+        case 'clustering':
+          return 'pi pi-chart-pie';
+        case 'regression':
+          return 'pi pi-chart-line';
+        case 'classification':
+          return 'pi pi-list';
+        case 'time series':
+          return 'pi pi-clock';
+        default:
+          return 'pi pi-chart-bar';
+      }},
+
     generatePlotTitle(selectedValues) {
       let title = '';
       console.log(selectedValues)
@@ -1038,4 +1077,74 @@ input:checked + .slider:before {
   width: 100%;
   height: 400px;
 }
+.dataVisual-tabs ul {
+  display: flex;
+  justify-content: space-around;
+  padding: 0;
+  margin: 20px 0;
+  list-style: none;
+  gap: 10px; /* Add gap between the tabs */
+}
+
+.dataVisual-tabs li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 13%;
+  height: 100px;
+  cursor: pointer;
+  color: #ffffff;
+  background-color: #0e2962;
+  transition: background-color 0.3s ease;
+  text-align: center;
+  border-radius: 10px;
+}
+
+.dataVisual-tabs li.active {
+  background-color: #5d80ca;
+  font-weight: bold;
+}
+
+.dataVisual-tabs li:hover {
+  background-color: #3b82f6;
+}
+
+.tab-icon {
+  font-size: 24px;
+  margin-bottom: 10px; /* Add space between the icon and the text */
+}
+
+
+.advanced-settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border-radius: 5px;
+  margin-top: 10px;
+}
+
+.advanced-settings-header:hover {
+  background-color: #e0e0e0;
+}
+
+.advanced-settings-content {
+  padding: 10px;
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  margin-top: 5px;
+}
+
+.scrollable-dropdown {
+  width: 100%;
+}
+
+.p-button.p-component .submit-button {
+  margin-top: 20px;
+}
+
 </style>

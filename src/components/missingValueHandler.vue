@@ -28,7 +28,7 @@
               class="column-select" 
               optionLabel="label" 
               placeholder="Select a column" 
-              :disabled="metadata && !metadata.submittable"
+              :disabled="metadata && !metadata.executed"
             />
           </slot>
         </div>
@@ -42,14 +42,14 @@
             class="method-select" 
             optionLabel="label" 
             placeholder="Select a method" 
-            :disabled="metadata && !metadata.submittable"
+            :disabled="metadata && !metadata.executed"
           />
           <input 
             v-if="selectedMethod.value === 'Assign Value'" 
             v-model="assignValue" 
             placeholder="Assign Value" 
             class="assign-input" 
-            :disabled="metadata && !metadata.submittable"
+            :disabled="metadata && !metadata.executed"
           />
           
           <div v-if="['Mean', 'Median', 'Most Common'].includes(selectedMethod.value)">
@@ -60,13 +60,13 @@
               class="group-by-select" 
               optionLabel="label" 
               placeholder="Select a grouping column" 
-              :disabled="metadata && !metadata.submittable"
+              :disabled="metadata && !metadata.executed"
             />
           </div>
 
           <div v-if="selectedGroupBy && ['Mean', 'Median', 'Most Common'].includes(selectedMethod.value)" class="consider-nan-container">
             <h4>Consider NaN as a separate category:</h4>
-            <InputSwitch v-model="considerNaNAsCategory" :disabled="metadata && !metadata.submittable"/>
+            <InputSwitch v-model="considerNaNAsCategory" :disabled="metadata && !metadata.executed"/>
           </div>
           
           <div v-if="selectedMethod.value === 'Interpolate'">
@@ -77,13 +77,13 @@
               class="interpolate-by-select" 
               optionLabel="label" 
               placeholder="Select an interpolation column" 
-              :disabled="metadata && !metadata.submittable"
+              :disabled="metadata && !metadata.executed"
             />
           </div>
 
           <div class="fit-to-train-container" v-if="['Mean', 'Median', 'Most Common'].includes(selectedMethod.value)">
             <h4>Fit to Train Data:</h4>
-            <InputSwitch v-model="fitToTrain" :disabled="metadata && !metadata.submittable"/>
+            <InputSwitch v-model="fitToTrain" :disabled="metadata && !metadata.executed"/>
           </div>
         </div>
       </section>
@@ -94,7 +94,7 @@
             label="Fill Missing Value" 
             class="btn-green" 
             @click="submit" 
-            :disabled="!selectedColumn || !selectedMethod || (metadata && !metadata.submittable)"
+            :disabled="!selectedColumn || !selectedMethod || (metadata && !metadata.executed)"
           />
         </slot>
       </footer>

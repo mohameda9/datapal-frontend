@@ -18,26 +18,6 @@
         <div class="user-dataset-container">
           <UserDataset :data="localDataInstances[0].data" />
         </div>
-        <div class="plots-container">
-          <div v-for="(plotList, plotIndex) in plots" :key="plotIndex" class="plot-card">
-            <dataVisuals
-              :plots="plotList"
-              :data="localDataInstances[0].data"
-              :numericalColumns="getColumnNamesByType(localDataInstances[0], ['numeric', 'numeric binary'])"
-              :categoricalColumns="getColumnNamesByType(localDataInstances[0], ['categorical','categorical binary' ])"
-              :variables="localDataInstances[0].data[0]"
-              @deletePlot="() => removePlotCard(plotIndex)"
-              @updatePlot="plot => { console.log(plot); }"
-              @submittingPlot="handleSubmitPlot"
-            ></dataVisuals>
-          </div>
-        </div>
-
-        <div class="add-plot-container">
-          <button class="add-plot-button" @click="addNewPlotCard">
-            <span class="pi pi-plus"></span>
-          </button>
-        </div>
       </div>
 
       <Dialog
@@ -71,7 +51,6 @@
 import { mapActions, mapGetters, mapMutations } from 'vuex';
 import ProjectManagerBar from '../components/ProjectManagerBar.vue';
 import UserDataset from '../components/UserDataset.vue';
-import { Histogram, BarPlot, BoxWhiskerPlot, ScatterPlot } from '../classes/Visualization';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import dataVisuals from '../components/dataVisuals.vue';
@@ -93,9 +72,7 @@ export default {
       parsing: false,
       dataloadView: false,
       columnsTodelete: [],
-      plots: [
-        [new Histogram(), new BarPlot(), new BoxWhiskerPlot(), new ScatterPlot()]
-      ],
+
       numericalColumns: [],
       categoricalColumns: [],
       submitting: false,
@@ -167,8 +144,6 @@ export default {
       // Create both instances: original and working data
       this.createNewInstance({ data: [headers, ...data], name: "original", dataTypes });
       this.createNewInstance({ data: [headers, ...data], name: "working data", dataTypes });
-      console.log('creating isntances')
-      console.log(this.localDataInstances)
     },
 
     createNewInstance({ data, name, dataTypes }) {
@@ -200,6 +175,7 @@ export default {
       });
       return dataTypes;
     },
+
     determineDataTypeForColumn(data, columnIndex) {
       let numeric = true;
       const uniqueValues = new Set();
@@ -216,9 +192,11 @@ export default {
       if (uniqueValues.size === 2) {
         return numeric ? 'numeric binary' : 'categorical binary';
       }
+      if (!numeric && uniqueValues.size <= 50) {
+        return 'categorical';
+      }
       return numeric ? 'numeric' : 'categorical';
     },
-
 
     convertNumericColumns(data, dataTypes) {
       for (let i = 0; i < data.length; i++) {
@@ -234,7 +212,6 @@ export default {
         }
       }
     },
-
 
     async submitDataUpload() {
       this.submitting = true;
@@ -268,17 +245,7 @@ export default {
       this.setLocalDataInstances([]);
     },
 
-    addNewPlotCard() {
-      this.plots.push([new Histogram(), new BarPlot(), new BoxWhiskerPlot(), new ScatterPlot()]);
-    },
-
-    removePlotCard(index) {
-      this.plots.splice(index, 1);
-    },
-
-    handleSubmitPlot(selectedValues) {
-      console.log(selectedValues);
-    },
+   
   },
 };
 </script>
@@ -439,46 +406,7 @@ export default {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
-  height: 500px;
+  max-height: 600px;
 }
 
-.plots-container {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.plot-card {
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  padding: 10px;
-  background-color: #f8f9fa;
-}
-
-.add-plot-container {
-  display: flex;
-  justify-content: center;
-  margin-top: 20px;
-}
-
-.add-plot-button {
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  font-size: 24px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.3s ease, transform 0.3s ease;
-}
-
-.add-plot-button:hover {
-  background-color: #0056b3;
-  transform: translateY(-3px);
-}
 </style>

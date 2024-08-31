@@ -7,9 +7,9 @@
         class="w-full"
         placeholder="Select Column"
         @change="handleColumnChange"
-        :disabled="metadata && !metadata.submittable"
+        :disabled="metadata && !metadata.executed"
       />
-      <input type="text" v-model="newColumnName" placeholder="New Column Name" class="w-full mt-3" :disabled="metadata && !metadata.submittable" />
+      <input type="text" v-model="newColumnName" placeholder="New Column Name" class="w-full mt-3" :disabled="metadata && !metadata.executed" />
       <div v-for="(pair, index) in categoryValuePairs" :key="index" class="category-value-pair">
         <MultiSelect
           v-model="pair.selectedCategories"
@@ -17,18 +17,18 @@
           class="w-full"
           placeholder="Select Categories"
           display="chip"
-          :disabled="metadata && !metadata.submittable"
+          :disabled="metadata && !metadata.executed"
         />
-        <input type="text" v-model="pair.value" placeholder="Value" :disabled="metadata && !metadata.submittable" />
-        <Button icon="pi pi-times" class="delete-button" @click="removePair(index)" :disabled="metadata && !metadata.submittable" />
+        <input type="text" v-model="pair.value" placeholder="Value" :disabled="metadata && !metadata.executed" />
+        <Button icon="pi pi-times" class="delete-button" @click="removePair(index)" :disabled="metadata && !metadata.executed" />
       </div>
-      <Button label="Add Pair" icon="pi pi-plus" @click="addPair" :disabled="metadata && !metadata.submittable" />
+      <Button label="Add Pair" icon="pi pi-plus" @click="addPair" :disabled="metadata && !metadata.executed" />
       <div class="default-value">
         <h3>Default Value for Remaining (optional)</h3>
-        <input type="text" v-model="defaultValue" placeholder="Default Value" :disabled="metadata && !metadata.submittable" />
+        <input type="text" v-model="defaultValue" placeholder="Default Value" :disabled="metadata && !metadata.executed" />
       </div>
       <div class="modal-footer">
-        <Button label="Submit" icon="pi pi-check" @click="submit" :disabled="!isFormValid || (metadata && !metadata.submittable)" />
+        <Button label="Submit" icon="pi pi-check" @click="submit" :disabled="!isFormValid || (metadata && !metadata.executed)" />
         <Button label="Cancel" icon="pi pi-times" class="p-button-secondary" @click="closeModal" />
       </div>
     </div>

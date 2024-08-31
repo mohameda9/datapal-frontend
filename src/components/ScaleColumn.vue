@@ -3,37 +3,37 @@
       <div class="scale-column-modal">
         <p>Select a numerical column to scale</p>
         <div class="custom-dropdown-container">
-          <Dropdown v-model="selectedColumn" :options="availableColumns" placeholder="Select a column" class="w-full" :disabled="metaData && !metaData.submittable" />
+          <Dropdown v-model="selectedColumn" :options="availableColumns" placeholder="Select a column" class="w-full" :disabled="metaData && metaData.executed" />
         </div>
         <div class="custom-dropdown-container">
-          <Dropdown v-model="scaleType" :options="scaleOptions" optionLabel="label" optionValue="value" placeholder="Select scale type" class="w-full" :disabled="metaData && !metaData.submittable" />
+          <Dropdown v-model="scaleType" :options="scaleOptions" optionLabel="label" optionValue="value" placeholder="Select scale type" class="w-full" :disabled="metaData && metaData.executed" />
         </div>
         <div v-if="scaleType === 'normalize'" class="input-group">
           <div class="input-item">
             <p>Min value</p>
-            <input type="number" step="1" v-model.number="newMin" @input="validateMinMax" :disabled="metaData && !metaData.submittable" />
+            <input type="number" step="1" v-model.number="newMin" @input="validateMinMax" :disabled="metaData && metaData.executed" />
           </div>
           <div class="input-item">
             <p>Max value</p>
-            <input type="number" v-model.number="newMax" @input="validateMinMax" :disabled="metaData && !metaData.submittable" />
+            <input type="number" v-model.number="newMax" @input="validateMinMax" :disabled="metaData && metaData.executed" />
           </div>
         </div>
         <div v-if="scaleType === 'log'" class="input-group">
           <div class="input-item">
             <p>Base</p>
-            <input type="number" step="1" v-model.number="logBase" :disabled="metaData && !metaData.submittable" />
+            <input type="number" step="1" v-model.number="logBase" :disabled="metaData && metaData.executed" />
           </div>
         </div>
         <div v-if="scaleType === 'box-cox' || scaleType === 'yeo-johnson'" class="input-group">
           <div class="input-item">
             <p>Lambda</p>
-            <input type="number" step="0.01" v-model.number="lambda" :disabled="metaData && !metaData.submittable" />
+            <input type="number" step="0.01" v-model.number="lambda" :disabled="metaData && metaData.executed" />
           </div>
         </div>
         <div class="input-group">
           <div class="input-item">
             <p>Fit on Train Data Only</p>
-            <InputSwitch v-model="fitOnTrain" :disabled="metaData && !metaData.submittable" />
+            <InputSwitch v-model="fitOnTrain" :disabled="metaData && metaData.executed" />
           </div>
         </div>
         <div v-if="minMaxvalidationError" class="error-message">
@@ -44,7 +44,7 @@
             label="Submit"
             icon="pi pi-check"
             @click="submit"
-            :disabled="!isFormValid || (metaData && !metaData.submittable)"
+            :disabled="!isFormValid || (metaData && metaData.executed)"
           />
           <Button label="Cancel" icon="pi pi-times" class="p-button-secondary" @click="closeModal" />
         </div>

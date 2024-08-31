@@ -15,7 +15,7 @@
     <div class="menu">
       <div class="menu-item" @click="$emit('goDataUpload')">
         <CRow class="menu-text">
-          <i class="fa fa-chart-bar"></i>
+          <i class="fa fa-upload"></i>
           <span>Data Upload</span>
         </CRow>
       </div>
@@ -27,7 +27,7 @@
       </div>
       <div class="menu-item" @click="$emit('goDataAnalysis')">
         <CRow class="menu-text">
-          <i class="fa fa-cogs"></i>
+          <i class="fa fa-chart-bar"></i>
           <span>Data Analysis</span>
         </CRow>
       </div>
@@ -57,7 +57,7 @@ export default {
   name: 'ProjectManagerBar',
   data() {
     return {
-      isSaving: false
+      isSaving: false,
     };
   },
   setup() {
@@ -75,7 +75,7 @@ export default {
     ...mapGetters(['getCurrentProject']),
     activeProject() {
       return this.getCurrentProject;
-    }
+    },
   },
   methods: {
     ...mapActions(['loadProject', 'saveLocalDataInstances']),
@@ -83,11 +83,11 @@ export default {
       this.isSaving = true;
       await this.saveLocalDataInstances();
       this.isSaving = false;
-    }
+    },
   },
   async created() {
     await this.loadProject();
-  }
+  },
 };
 </script>
 
@@ -97,27 +97,26 @@ export default {
 .sidebar {
   display: flex;
   align-items: center;
-  width: 10%; /* Increased width */
+  width: 10%;
   height: 100%;
   background-color: #263c55;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), 0 12px 30px rgba(0, 0, 0, 0.15);
   box-sizing: border-box;
   overflow-y: auto;
   position: fixed;
-  left: 0%;
+  left: 0;
   transition: all 0.3s ease;
-  padding: 20px 0px;
-  /* Glowing Effect */
+  padding: 20px 0;
   border: 2px solid #0b0000;
   animation: glowing 1.5s infinite;
 }
 
 .sidebar .name {
-  font-size: 200%; /* Increased font size */
+  font-size: 200%;
   margin-bottom: 20px;
   font-weight: 600;
   color: #007bff;
-  cursor: pointer; /* Add cursor pointer */
+  cursor: pointer;
 }
 
 .sidebar .active-project {
@@ -137,8 +136,8 @@ export default {
 .menu-item {
   display: flex;
   align-items: center;
-  padding: 20px; /* Increased padding */
-  margin: 10px 0; /* Increased margin */
+  padding: 20px;
+  margin: 10px 0;
   border-radius: 8px;
   transition: all 0.3s ease;
   color: #c2cbd5;
@@ -146,11 +145,11 @@ export default {
 }
 
 .menu-item i {
-  font-size: 150%; /* Increased font size */
+  font-size: 150%;
 }
 
 .menu-item span {
-  font-size: 100%; /* Increased font size */
+  font-size: 100%;
   font-weight: 600;
 }
 
@@ -163,14 +162,14 @@ export default {
   margin-bottom: 50px;
   display: flex;
   align-items: center;
-  padding: 20px; /* Increased padding */
-  margin: 10px 0; /* Increased margin */
+  padding: 20px;
+  margin: 10px 0;
   color: #a4c5e8;
   cursor: pointer;
 }
 
 .save-work i {
-  font-size: 200%; /* Increased font size */
+  font-size: 200%;
 }
 
 .save-work:hover {

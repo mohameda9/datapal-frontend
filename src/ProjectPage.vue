@@ -5,6 +5,8 @@
         @goDataProcessing="navigateTo('dataProcessing')"
         @goDataUpload="navigateTo('dataUpload')"
         @goDataAnalysis="navigateTo('dataAnalysis')"
+        @goModelCreation="navigateTo('modelCreation')"
+
       />
     </CCol>
 
@@ -15,6 +17,10 @@
         </div>
         <div v-show="activePage === 'dataAnalysis'">
           <DataAnalysis />
+        </div>
+
+        <div v-show="activePage === 'modelCreation'">
+          <ModelCreation />
         </div>
 
         <div v-if="localDataInstances.length > 0 && activePage === 'dataProcessing'" class="mt-3">
@@ -65,6 +71,14 @@
               :metadata="metaDataForEditingModal"
             />
 
+            <DescribeDataDialog
+              :visible="showDescribeDataModal"
+              @close="showDescribeDataModal = false"
+              :metadata="metaDataForEditingModal"
+              @submit="handleDescribeDataSubmit"
+            />
+
+
 
 
 
@@ -91,15 +105,24 @@
               <div class="partition-data-modal">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                   <p style="margin: 0; font-weight: bold;">Specify the Train data size:</p>
-                  <input type="number" v-model="splitSize" :disabled="metaDataForEditingModal && !metaDataForEditingModal.submittable" min="0.5" max="1" step="0.01" placeholder="Enter split size (e.g., 0.8)" style="margin-left: 10px; padding: 5px; border-radius: 5px; border: 1px solid #ced4da;" />
+                  <input type="number" v-model="splitSize" :disabled="metaDataForEditingModal && !metaDataForEditingModal.executed" min="0.5" max="1" step="0.01" placeholder="Enter split size (e.g., 0.8)" style="margin-left: 10px; padding: 5px; border-radius: 5px; border: 1px solid #ced4da;" />
                 </div>
                 <p style="margin-top: 10px; font-style: italic; color: #6c757d;">Test size: {{ (1 - splitSize).toFixed(2) }}</p>
                 <div class="modal-footer" style="display: flex; justify-content: flex-end; margin-top: 20px;">
-                  <Button label="Submit" icon="pi pi-check" @click="wf_partitionData(splitSize)" :disabled="metaDataForEditingModal && !metaDataForEditingModal.submittable" />
+                  <Button label="Submit" icon="pi pi-check" @click="wf_partitionData(splitSize)" :disabled="metaDataForEditingModal && metaDataForEditingModal.executed" />
                   <Button label="Cancel" icon="pi pi-times" class="p-button-secondary" @click="showPartitionModal = false" style="margin-left: 10px;" />
                 </div>
               </div>
             </Dialog>
+            <DiscretizationModal
+              v-if="showDiscretizationModal"
+              :visible="showDiscretizationModal"
+              :numericColumns="getColumnNamesByType(currentInstance, ['numeric'])"
+              @close="showDiscretizationModal = false"
+              @submit="handleDiscretizationSubmit"
+              :metadata="metaDataForEditingModal"
+            />
+
 
 
             <div v-show="instance && !instance.isCollapsed">
@@ -116,10 +139,10 @@
                 <Dialog v-if="showOneHotModal" :visible="showOneHotModal" @hide="showOneHotModal = false" :modal="true" header="One hot encoding">
                 <p>Select a categorical column to one hot encode</p>
                 <div class="custom-dropdown-container">
-                  <Dropdown v-model="oneHotColumnValue" :options="getColumnNamesByType(currentInstance, ['categorical'])" class="w-full" :disabled="metaDataForEditingModal && !metaDataForEditingModal.submittable" />
+                  <Dropdown v-model="oneHotColumnValue" :options="getColumnNamesByType(currentInstance, ['categorical'])" class="w-full" :disabled="metaDataForEditingModal && metaDataForEditingModal.executed" />
                 </div>
                 <div class="modal-footer">
-                  <Button label="Submit" icon="pi pi-check" @click="wf_oneHotEncode(oneHotColumnValue)" :disabled="metaDataForEditingModal && !metaDataForEditingModal.submittable" />
+                  <Button label="Submit" icon="pi pi-check" @click="wf_oneHotEncode(oneHotColumnValue)" :disabled="metaDataForEditingModal && metaDataForEditingModal.executed" />
                   <Button label="Cancel" icon="pi pi-times" class="p-button-secondary" @click="showOneHotModal = false" />
                 </div>
               </Dialog>
@@ -175,6 +198,10 @@ import DataUpload_new from './views/DataUpload_new.vue';
 import UserDataset from './components/UserDataset.vue';
 import DataAnalysis from './views/DataAnalysis.vue'; 
 import ScaleColumn from './components/ScaleColumn.vue';
+import ModelCreation from './views/ModelCreation.vue';
+import DescribeDataDialog from './components/DescribeDataDialog.vue';
+import DiscretizationModal from './components/DiscretizationModal.vue';
+
 
 export default {
   name: 'ProjectPage',
@@ -216,6 +243,10 @@ export default {
       metaDataForEditingModal: null,
       showPartitionModal: false,
       splitSize: 0.8,
+      showDescribeDataModal: false,
+      describeDataResult: null,
+      showDiscretizationModal: false,
+
     };
   },
   created() {
@@ -230,11 +261,14 @@ export default {
     Dialog,
     DataUpload_new,
     ProjectManagerBar,
+    DiscretizationModal,
     DataProcessingWorkflow,
     Dropdown,
     Button,
     DataAnalysis,
-    ScaleColumn
+    DescribeDataDialog,
+    ScaleColumn,
+    ModelCreation
   },
   computed: {
     ...mapGetters(['getLocalDataInstances']),
@@ -370,117 +404,139 @@ export default {
     },
 
     handleWorkflowAction(action, index, description = null, APIdata = null) {
-    this.currentInstanceIndex = index;
-    this.currentInstance = this.localDataInstances[index];
-    this.metaDataForEditingModal = null;
-    this.isEditingWorkflow = false;
-    console.log(action)
+      this.currentInstanceIndex = index;
+      this.currentInstance = this.localDataInstances[index];
+      this.metaDataForEditingModal = null;
+      this.isEditingWorkflow = false;
+      console.log(action)
 
-    const partitionActionExists = this.currentInstance.workflow.some(
-    workflow => workflow.title === 'Partition Data'
-  );
-
-    if (action === 'partition-data' && partitionActionExists) {
-      this.raiseErrorToUser('A partition action already exists. You cannot add another one.');
-      return;
+      if (action === 'onehot-encoding') {
+        this.showOneHotModal = true;
+      } else if (action === 'normalize-column') {
+        this.shownormalizemodal = true;
+      } else if (action === 'handle-missing') {
+        this.showhandlingMissingValues = true;
+      } else if (action === 'create-new-column') {
+        this.showColumnCreatorModal = true;
+      } else if (action === 'categorical-labeling') {
+        this.showCategoricalLabelingModal = true;
+      } else if (action === 'partition-data') {
+        this.showPartitionModal = true;
+      } else if (action === 'describe-data') {
+        console.log("fff")
+        this.showDescribeDataModal = true;
+      }
+      else if (action === 'discretize-column') {
+        this.showDiscretizationModal = true;
+      }
+    },
+    handleDiscretizationSubmit(data) {
+      this.showDiscretizationModal = false;
+      if (this.isEditingWorkflow) {
+        this.updateWorkflowItem('discretize-column', `Discretize Column: ${data.selectedColumn}`, data);
+      } else {
+        this.handleWorkflowSubmission(this.currentInstanceIndex, 'discretize-column', `Discretize Column: ${data.selectedColumn}`, data);
+      }
+    },
+    handleDescribeDataSubmit() {
+    if (this.isEditingWorkflow) {
+      this.updateWorkflowItem('describe-data', 'Describe Data', {});
+    } else {
+      this.handleWorkflowSubmission(this.currentInstanceIndex, 'describe-data', 'Describe Data', {});
     }
-
-
-    if (action === 'onehot-encoding') {
-      this.showOneHotModal = true;
-    } else if (action === 'normalize-column') {
-      this.shownormalizemodal = true;
-    } else if (action === 'handle-missing') {
-      this.showhandlingMissingValues = true;
-    } else if (action === 'create-new-column') {
-      this.showColumnCreatorModal = true;
-    } else if (action === 'categorical-labeling') {
-      this.showCategoricalLabelingModal = true;
-    } else if (action === 'partition-data') {
-      this.showPartitionModal = true
-    }
+    this.showDescribeDataModal = false;
   },
     updateWorkflow(updatedWorkflows, instanceIndex) {
       this.localDataInstances[instanceIndex].workflow = updatedWorkflows;
       this.setLocalDataInstances(this.localDataInstances);
     },
     openWorkflowDetail(workflowIndex, currentInstanceIndex) {
+    const workflow = this.localDataInstances[currentInstanceIndex].workflow[workflowIndex];
+    this.currentInstance = this.localDataInstances[currentInstanceIndex];
+    this.currentWorkflow = workflow;
+    console.log("fjdks", workflow)
+    this.isEditingWorkflow = true;
+    this.editingWorkflowIndex = workflowIndex;
+    this.metaDataForEditingModal = workflow.APIdata;
+    this.metaDataForEditingModal["executed"] = workflow.executed
+    console.log( this.metaDataForEditingModal)
 
-
-      const workflow = this.getLocalDataInstances[currentInstanceIndex].workflow[workflowIndex];
-      this.currentInstance = this.localDataInstances[currentInstanceIndex];
-      this.currentWorkflow = workflow;
-      this.isEditingWorkflow = true;
-      this.editingWorkflowIndex = workflowIndex;
+    if (workflow.title === 'One Hot Encoding') {
+      this.oneHotColumnValue = workflow.APIdata.columnName;
+      this.showOneHotModal = true;
+    } else if (workflow.title === 'Scale Column') {
+      this.shownormalizemodal = true;
+    } else if (workflow.title === 'Handle Missing Values') {
+      this.showhandlingMissingValues = true;
+    } else if (workflow.title === 'Create New Column') {
+      this.showColumnCreatorModal = true;
+    } else if (workflow.title === 'Categorical Labeling') {
+      this.showCategoricalLabelingModal = true;
+    } else if (workflow.title === 'Partition Data') {
+      this.splitSize = workflow.APIdata.splitSize;
+      this.showPartitionModal = true;
+    } else if (workflow.title === 'Describe Data') {
+      this.showDescribeDataModal = true;
+    }
+    else if (workflow.title === 'Discretize Column') {
+      this.showDiscretizationModal = true;
       this.metaDataForEditingModal = workflow.APIdata;
-      console.log("sss")
-      console.log(this.metaDataForEditingModal)
-      this.metaDataForEditingModal["submittable"] = !workflow.executed;
-      console.log(this.metaDataForEditingModal)
+    }
 
-      if (workflow.title === 'One Hot Encoding') {
-        this.oneHotColumnValue = workflow.APIdata.columnName;
-        this.showOneHotModal = true;
-      } else if (workflow.title === 'Scale Column') {
-        this.shownormalizemodal = true;
-        console.log("sssss")
-      } else if (workflow.title === 'Handle Missing Values') {
-        this.showhandlingMissingValues = true;
-      }else if (workflow.title === 'Create New Column') {
-        this.showColumnCreatorModal = true;
-      } else if (workflow.title === 'Categorical Labeling') {
-        this.showCategoricalLabelingModal = true;
-      } else if (workflow.title === 'Partition Data') {
-        this.splitSize = workflow.APIdata.splitSize;
-        this.showPartitionModal = true;
-      }
+  },
+  async handleExecuteWorkflows(workflows, instanceIndex) {
+    const updatedInstances = [...this.localDataInstances];
+    const instance = updatedInstances[instanceIndex];
+    const dataToSend = {
+      data: instance.data.map(row => ({ columns: row }))
+    };
+    const testDataToSend = {
+      data: instance.testData.map(row => ({ columns: row }))
+    };
 
+    const requestBody = {
+      data: dataToSend,
+      workflow: workflows,
+      testData: testDataToSend
+    };
 
-      console.log(this.shownormalizemodal)
+    try {
+      const response = await axios.post('/executeWorkflow', requestBody, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
-    },
-    async handleExecuteWorkflows(workflows, instanceIndex) {
-      const updatedInstances = [...this.localDataInstances];
-      const instance = updatedInstances[instanceIndex];
-      const dataToSend = {
-        data: instance.data.map(row => ({ columns: row }))
-      };
-      console.log(instance)
+      console.log(response.data.workflow_results);
 
-      const testDataToSend = {
-        data: instance.testData.map(row => ({ columns: row }))
-      };
-
-      console.log(testDataToSend)
-      const requestBody = {
-        data: dataToSend,
-        workflow: workflows,
-        testData: testDataToSend
-      };
-
-      requestBody
-      try {
-        const response = await axios.post('/executeWorkflow', requestBody, {
-          headers: {
-            'Content-Type': 'application/json'
+      if (response.data.workflow_results) {
+        // Update workflow metadata using the workflow index
+        response.data.workflow_results.forEach((result, index) => {
+          if (!updatedInstances[instanceIndex].workflow[index].executed) {
+            updatedInstances[instanceIndex].workflow[index].APIdata["description_metadata"] = result["description_metadata"];
           }
         });
-        updatedInstances[instanceIndex] = this.updateDataFromBackend(instance, response);
-
-        instance.workflow = workflows;
-
-        updatedInstances[instanceIndex].workflow.forEach(workflow => {
-          if (!workflow.executed) {
-            workflow.executed = true;
-          }
-        });
-
-        this.setLocalDataInstances(updatedInstances);
-        console.log("test3")
-      } catch (error) {
-        console.error('Error:', error);
       }
-    },
+
+      updatedInstances[instanceIndex] = this.updateDataFromBackend(instance, response);
+
+      // Update the data types with the returned column types
+      updatedInstances[instanceIndex].dataTypes = response.data.column_types;
+
+      instance.workflow = workflows;
+
+      updatedInstances[instanceIndex].workflow.forEach(workflow => {
+        if (!workflow.executed) {
+          workflow.executed = true;
+        }
+      });
+
+      this.setLocalDataInstances(updatedInstances);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  },
+
     updateDataFromBackend(instance, response) {
       const updatedData = JSON.parse(response.data.data);
       const headers = Object.keys(updatedData[0]);
@@ -554,6 +610,7 @@ export default {
 
     handleWorkflowSubmission(instanceIndex, action, description, APIdata) {
       console.log("api data: ", APIdata)
+      APIdata["executed"] = false
       const updatedInstances = [...this.localDataInstances];
       console.log(description)
       const actionDescriptions = {
@@ -562,7 +619,10 @@ export default {
         'create-new-column': 'Create New Column',
         'categorical-labeling': 'Categorical Labeling',
         'partition-data': 'Partition Data',
-        'handle-missing': 'Handle Missing Values'
+        'handle-missing': 'Handle Missing Values',
+        'describe-data': 'Describe Data',
+        'discretize-column': 'Discretize Column'
+
 
       };
       const newWorkflow = {
@@ -592,7 +652,9 @@ export default {
         'create-new-column': 'Create New Column',
         'categorical-labeling': 'Categorical Labeling',
         'partition-data': 'Partition Data',
-        'handle-missing': 'Handle Missing Values'
+        'handle-missing': 'Handle Missing Values',
+        'create-new-column': 'Create New Column',
+        'discretize-column': 'Discretize Column'
 
       };
       return actionDescriptions[action] || action;

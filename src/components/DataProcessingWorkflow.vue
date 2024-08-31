@@ -17,10 +17,15 @@
         </button>
         <button class="workflow-option handle-missing" @click="selectWorkflow('handle-missing')">
           <i class="pi pi-exclamation-circle"></i> Handle Missing Values           
-
+        </button>
+        <button class="workflow-option describe-data" @click="selectWorkflow('describe-data')">
+          <i class="pi pi-info-circle"></i> Describe Data
         </button>
         <button class="workflow-option partition-data" @click="selectWorkflow('partition-data')">
           <i class="pi pi-th-large"></i> Partition Data
+        </button>
+        <button class="workflow-option discretize-column" @click="selectWorkflow('discretize-column')">
+          <i class="pi pi-sitemap"></i> Discretize Column
         </button>
       </div>
       <div class="right-panel">
@@ -204,6 +209,10 @@ export default {
 
 .workflow-option.onehot-encoding {
   background-color: #4db8ff;
+}
+
+.workflow-option.describe-data {
+  background-color: #0d0821;
 }
 
 .workflow-option.normalize-column {

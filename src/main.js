@@ -12,10 +12,14 @@ import store from './store';
 import router from './router'; // Import the router
 import App from './finalApp.vue';
 const app = createApp(App); 
+import Toast from 'primevue/toast';
+import ToastService from 'primevue/toastservice';
 
 app.use(PrimeVue);
 app.use(CoreuiVue);
 app.use(store);
 app.use(router); // Use the router
+app.use(ToastService);
+app.component('Toast', Toast);
 
 app.mount('#app');
